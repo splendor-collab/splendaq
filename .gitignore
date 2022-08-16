@@ -1,0 +1,38 @@
+### ignore python compiled code
+
+*__pycache__/*
+*.pyc
+
+### ignore jupyter checkpoints
+
+*.ipynb_checkpoints/
+
+### ignore compiled Python code
+build/*
+dist/*
+*.egg-info/*
+
+### ignore autosaved files
+
+*.*~
+
+### ignore pytest files
+
+.pytest_cache/*
+
+
+### ignore generated data/pictures from demos
+demos/trigger/*.npz
+demos/didv/*.png
+
+### ignore the document build folder
+docs/_build/*
+
+### ignore checkpoint files from regenerating demos
+docs/example_demos/*-checkpoint*
+
+### ignore code coverage generated files
+.coverage
+/*.png
+
+
