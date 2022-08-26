@@ -104,6 +104,13 @@ class EventBuilder(object):
         self._maxevtsperdump = maxevtsperdump
         self._savepath = f"{os.path.abspath(savepath)}{os.sep}"
 
+        self._start = datetime.now()
+
+        filelist = sorted(glob(f"{self._contdatadir}/*.h5"))
+        FR = Reader(filelist[0])
+        metadata = FR.get_metadata()
+        self._fs = metadata['fs']
+
     def acquire_randoms(self, nrandoms):
         """
         Method for acquiring randomly triggered events and
@@ -117,9 +124,8 @@ class EventBuilder(object):
 
         """
 
-        now = datetime.now()
-        savename = "randoms_" + now.strftime("%Y%m%d_%H%M%S")
-        seriesnumber = int(now.strftime("%y%m%d%H%M%S"))
+        savename = "randoms_" + self._start.strftime("%Y%m%d_%H%M%S")
+        seriesnumber = int(self._start.strftime("%y%m%d%H%M%S"))
 
         filelist = sorted(glob(f"{self._contdatadir}/*.h5"))
         datashapes = []
@@ -198,6 +204,10 @@ class EventBuilder(object):
                         triggeramp=np.zeros(nevents),
                         parentseriesnumber=parentsns[:self._maxevtsperdump],
                         parenteventnumber=parentens[:self._maxevtsperdump],
+                        datashape=traces[:self._maxevtsperdump].shape,
+                        fs=self._fs,
+                        channels=metadata['channels'],
+                        comment='randoms',
                     )
                     dumpnum += 1
                     basenevents += nevents
@@ -254,6 +264,10 @@ class EventBuilder(object):
                     triggeramp=np.zeros(nevents),
                     parentseriesnumber=parentsns[:self._maxevtsperdump],
                     parenteventnumber=parentens[:self._maxevtsperdump],
+                    datashape=traces[:self._maxevtsperdump].shape,
+                    fs=self._fs,
+                    channels=metadata['channels'],
+                    comment=None,
                 )
                 dumpnum += 1
                 basenevents += nevents

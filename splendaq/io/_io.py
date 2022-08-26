@@ -67,7 +67,7 @@ class Reader(object):
 
         if filename is not None:
             self.filename = filename
-        else:
+        elif self.filename is None:
             raise ValueError("No filename specified.")
 
         with h5py.File(self.filename, mode='r') as hf:
@@ -100,7 +100,7 @@ class Reader(object):
 
         if filename is not None:
             self.filename = filename
-        else:
+        elif self.filename is None:
             raise ValueError("No filename specified.")
 
         with h5py.File(self.filename, mode='r') as hf:
@@ -149,6 +149,11 @@ class Writer(object):
             HDF5 file.
 
         """
+
+        if filename is not None:
+            self.filename = filename
+        elif self.filename is None:
+            raise ValueError("No filename specified.")
 
         with h5py.File(self.filename, mode='w') as hf:
             hf.create_dataset('data', data=data, compression='gzip')
