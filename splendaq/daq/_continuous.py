@@ -96,7 +96,7 @@ def log_data(ip_address, fs, duration, channels, savepath,
         for ii in range(nfiles):
             logfile = DL.start_logging(
                 duration=duration,
-                comment=comment
+                comment=comment,
                 file_name_prefix=file_name_prefix,
             )
             # Track progress percentage of the data logging session
