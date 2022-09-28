@@ -41,7 +41,8 @@ def connect_logger(ip_address, force_connect=False):
 
 
 def log_data(ip_address, fs, duration, channels, savepath,
-             force_connect=False, comment='', file_name_prefix=''):
+             force_connect=False, comment='', file_name_prefix='',
+             max_duration_per_file=60):
     """
     Function for logging continuous data on a Moku for a specified
     duration and channels.
@@ -53,7 +54,9 @@ def log_data(ip_address, fs, duration, channels, savepath,
     fs : float
         The digitization rate of the data that will be logged.
     duration : float
-        The amount of time in seconds that will be logged.
+        The amount of time in seconds that will be logged. Will not be
+        exactly followed due to time to tell the Moku to stop, and is
+        generally a lower bound per file.
     channels : int, list of ints
         Which channels to log, should be an integer from 1, 2, 3, or 4.
         If multiple channels are to be logged, a list can be passed.
@@ -68,6 +71,9 @@ def log_data(ip_address, fs, duration, channels, savepath,
     file_name_prefix : str, optional
         An optional prefix for the filename. the default is given
         by the Moku: MokuDataLoggerData.
+    max_duration_per_file : float, optional
+        The maximum amount of time per file in seconds. Default is
+        60 seconds.
 
     """
 
@@ -92,6 +98,7 @@ def log_data(ip_address, fs, duration, channels, savepath,
         DL.set_acquisition_mode(mode='Normal')
 
         filenames = []
+        nfiles = np.ceil(duration / max_duration_per_file)
 
         for ii in range(nfiles):
             logfile = DL.start_logging(
