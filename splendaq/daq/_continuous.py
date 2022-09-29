@@ -98,12 +98,12 @@ def log_data(ip_address, fs, duration, channels, savepath,
         DL.set_acquisition_mode(mode='Normal')
 
         filenames = []
-        nfiles = np.ceil(duration / max_duration_per_file)
+        nfiles = int(np.ceil(duration / max_duration_per_file))
 
         for ii in range(nfiles):
             logfile = DL.start_logging(
                 duration=duration,
-                comment=comment,
+                comments=comment,
                 file_name_prefix=file_name_prefix,
             )
             # Track progress percentage of the data logging session
