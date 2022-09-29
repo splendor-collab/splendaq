@@ -1,6 +1,7 @@
 import contextlib
 import time
 import os
+import numpy as np
 
 from moku.instruments import Datalogger
 
