@@ -283,7 +283,7 @@ class EventBuilder(object):
                     datashape=traces[:self._maxevtsperdump].shape,
                     fs=self._fs,
                     channels=metadata['channels'],
-                    comment=None,
+                    comment='randoms',
                 )
                 dumpnum += 1
                 basenevents += nevents
