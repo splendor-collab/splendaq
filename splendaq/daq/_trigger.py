@@ -549,6 +549,8 @@ class EventBuilder(object):
                         fs=self._fs,
                         channels=metadata['channels'],
                         comment=f'trigger threshold: {self._nthreshold}',
+                        template=self._template,
+                        psd=self._psd,
                     )
                     dumpnum += 1
                     basenevents += nevents
@@ -629,6 +631,8 @@ class EventBuilder(object):
                     fs=self._fs,
                     channels=metadata['channels'],
                     comment=f'trigger threshold: {self._nthreshold}',
+                    template=self._template,
+                    psd=self._psd,
                 )
                 dumpnum += 1
                 basenevents += nevents
