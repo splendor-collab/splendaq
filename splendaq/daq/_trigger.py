@@ -6,6 +6,7 @@ from itertools import chain
 import os
 from datetime import datetime
 from scipy.signal import correlate
+import warnings
 
 from splendaq.io import Reader, Writer
 
@@ -142,12 +143,29 @@ class EventBuilder(object):
         datashapes_arr = np.vstack(datashapes)
 
         nmax_rows = datashapes_arr[..., -1] // self._tracelength
+        nrows = datashapes_arr[:, 0]
+
         arr_range = np.arange(len(filelist))
 
         choicelist = list(
-            chain(*[[a] * n for n, a in zip(nmax_rows, arr_range)])
+            chain(
+                *[[a] * n * nr for a, n, nr in zip(
+                    arr_range, nmax_rows, nrows,
+                )]
+            )
         )
-        rows = np.random.choice(choicelist, size=nrandoms, replace=False)
+
+        if nrandoms > len(choicelist):
+            warnings.warn(
+                f"The desired number of randoms is too high, as there "
+                f"{len(choicelist)} possible randoms. Defaulting to this "
+                "maximum amount of randoms."
+            )
+        rows = np.random.choice(
+            choicelist,
+            size=np.min([nrandoms, len(choicelist)]),
+            replace=False,
+        )
         counts = Counter(rows)
 
         evtinds_list = []
@@ -441,6 +459,7 @@ class EventBuilder(object):
         dumpnum = 1
         basenevents = 0
 
+
         for filename in filelist:
 
             FR = Reader(filename)
@@ -450,7 +469,8 @@ class EventBuilder(object):
             epochtime_start = metadata['eventtime'][0]
 
             filtered = self._filter_traces(data)
-            for filt in filtered:
+            for kk, filt in enumerate(filtered):
+
                 if posthreshold:
                     ranges = EventBuilder._smart_trigger(
                         filt, self._threshold,
@@ -471,7 +491,7 @@ class EventBuilder(object):
                     trace_save_start = indmax - self._tracelength//2
                     trace_save_end = indmax + self._tracelength//2
                     traces_list.append(
-                        data[..., trace_save_start:trace_save_end]
+                        data[kk, :, trace_save_start:trace_save_end]
                     )
 
                 evt_counter += len(ranges)
@@ -521,7 +541,7 @@ class EventBuilder(object):
                             triginds[:self._maxevtsperdump] / self._fs
                         ),
                         triggertype=np.ones(nevents, dtype=int),
-                        triggeramp=evtamps,
+                        triggeramp=evtamps[:self._maxevtsperdump],
                         parentseriesnumber=parentsns[:self._maxevtsperdump],
                         parenteventnumber=parentens[:self._maxevtsperdump],
                         datashape=traces[:self._maxevtsperdump].shape,
@@ -601,7 +621,7 @@ class EventBuilder(object):
                         triginds[:self._maxevtsperdump] / self._fs
                     ),
                     triggertype=np.ones(nevents, dtype=int),
-                    triggeramp=evtamps,
+                    triggeramp=evtamps[:self._maxevtsperdump],
                     parentseriesnumber=parentsns[:self._maxevtsperdump],
                     parenteventnumber=parentens[:self._maxevtsperdump],
                     datashape=traces[:self._maxevtsperdump].shape,
