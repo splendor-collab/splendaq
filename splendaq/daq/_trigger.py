@@ -469,6 +469,7 @@ class EventBuilder(object):
             epochtime_start = metadata['eventtime'][0]
 
             filtered = self._filter_traces(data)
+
             for kk, filt in enumerate(filtered):
 
                 if posthreshold:
@@ -491,7 +492,7 @@ class EventBuilder(object):
                     trace_save_start = indmax - self._tracelength//2
                     trace_save_end = indmax + self._tracelength//2
                     traces_list.append(
-                        data[kk, :, trace_save_start:trace_save_end]
+                        data[[kk], :, trace_save_start:trace_save_end]
                     )
 
                 evt_counter += len(ranges)
@@ -505,7 +506,7 @@ class EventBuilder(object):
                 evtinds = np.concatenate(evtinds_list)
                 triginds = np.concatenate(triginds_list)
                 evtamps = np.concatenate(evtamps_list)
-                traces = np.stack(traces_list, axis=0)
+                traces = np.concatenate(traces_list)
                 parentsns = np.concatenate(parentsn_list)
                 parentens = np.concatenate(parenten_list)
                 epochtimes = np.concatenate(epochtime_list)
@@ -585,7 +586,7 @@ class EventBuilder(object):
             evtinds = np.concatenate(evtinds_list)
             triginds = np.concatenate(triginds_list)
             evtamps = np.concatenate(evtamps_list)
-            traces = np.stack(traces_list, axis=0)
+            traces = np.concatenate(traces_list)
             parentsns = np.concatenate(parentsn_list)
             parentens = np.concatenate(parenten_list)
             epochtimes = np.concatenate(epochtime_list)
