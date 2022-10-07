@@ -1,5 +1,6 @@
 import subprocess
 import os
+import sys
 from pathlib import Path
 from datetime import datetime
 import numpy as np
@@ -42,6 +43,34 @@ class Reader(object):
 
         self.filename = filename
 
+    def _open_file(self, include_data, include_metadata, filename=None):
+        """
+        Hidden method to handle opening data under different settings.
+
+        """
+
+        if filename is not None:
+            self.filename = filename
+        elif self.filename is None:
+            raise ValueError("No filename specified.")
+
+        with h5py.File(self.filename, mode='r') as hf:
+            if include_metadata:
+                out_dict = dict(hf.attrs)
+                for key in hf:
+                    if key != 'data':
+                        out_dict[key] = np.asarray(hf[key])
+            if include_data:
+                data = np.asarray(hf['data'])
+
+        if include_data and include_metadata:
+            return data, out_dict
+        elif include_data and not include_metadata:
+            return data
+        elif not include_data and include_metadata:
+            return out_dict
+
+
     def get_data(self, filename=None, include_metadata=False):
         """
         Method to load the data from the specified HDF5 file.
@@ -65,20 +94,7 @@ class Reader(object):
 
         """
 
-        if filename is not None:
-            self.filename = filename
-        elif self.filename is None:
-            raise ValueError("No filename specified.")
-
-        with h5py.File(self.filename, mode='r') as hf:
-            if include_metadata:
-                out_dict = dict(hf.attrs)
-            data = np.asarray(hf['data'])
-
-        if include_metadata:
-            return data, out_dict
-        else:
-            return data
+        return self._open_file(True, include_metadata, filename=filename)
 
     def get_metadata(self, filename=None):
         """
@@ -98,15 +114,7 @@ class Reader(object):
 
         """
 
-        if filename is not None:
-            self.filename = filename
-        elif self.filename is None:
-            raise ValueError("No filename specified.")
-
-        with h5py.File(self.filename, mode='r') as hf:
-            out_dict = dict(hf.attrs)
-
-        return out_dict
+        return self._open_file(False, True, filename=filename)
 
 
 class Writer(object):
@@ -158,7 +166,13 @@ class Writer(object):
         with h5py.File(self.filename, mode='w') as hf:
             hf.create_dataset('data', data=data, compression='gzip')
             for key in metadata:
-                hf.attrs[key] = metadata[key]
+                if sys.getsizeof(metadata[key]) < 64000:
+                    hf.attrs[key] = metadata[key]
+                else:
+                    hf.create_dataset(
+                        key, data=metadata[key], compression='gzip',
+                    )
+                
 
 
 def convert_li(file, filetype='mat'):

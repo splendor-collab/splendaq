@@ -371,6 +371,8 @@ class EventBuilder(object):
         """
 
         turn_on_all = (trace > threshold)
+        turn_on = np.zeros(len(turn_on_all), dtype=bool)
+
         ind1 = 0
         ind_list = []
 
@@ -378,7 +380,7 @@ class EventBuilder(object):
 
         while searching:
 
-            turn_on = np.zeros(len(turn_on_all), dtype=bool)
+            turn_on[:] = False
             turn_on[ind1:] = turn_on_all[ind1:]
 
             if np.all(turn_on==0):
@@ -386,17 +388,16 @@ class EventBuilder(object):
                 break
 
             ind_on = np.argmax(turn_on)
-            ind_off_init = np.argmax(np.diff(turn_on.astype(float)) < 0) + 1
+            ind_off_init = np.argmax(np.diff(turn_on.astype(np.int8)) < 0) + 1
             max_amp = np.max(trace[ind_on:ind_off_init])
 
-            turn_off = (trace > max_amp / np.e)
-            turn_off[:ind_on] = 0
-
             if max_amp / np.e < threshold:
+                turn_off = (trace > max_amp / np.e)
+                turn_off[:ind_on] = 0
                 ind0 = np.argmax(turn_off)
-                ind1 = np.argmax(np.diff(turn_off.astype(float)) < 0) + 1
+                ind1 = np.argmax(np.diff(turn_off.astype(np.int8)) < 0) + 1
             else:
-                ind0 = np.argmax(turn_on)
+                ind0 = ind_on
                 ind1 = ind_off_init
 
             ind_list.append([ind0, ind1])
@@ -467,7 +468,7 @@ class EventBuilder(object):
             parentsn = metadata['parentseriesnumber'][0]
             parenten = metadata['parenteventnumber'][0]
             epochtime_start = metadata['eventtime'][0]
-
+            
             filtered = self._filter_traces(data)
 
             for kk, filt in enumerate(filtered):
