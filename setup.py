@@ -26,32 +26,6 @@ def get_version(rel_path):
     else:
         raise RuntimeError("Unable to find version string.")
 
-
-class CleanCommand(Command):
-    """Custom clean command to tidy up the project root."""
-    CLEAN_FILES = './build ./dist ./*.pyc ./*.tgz ./*.egg-info'.split(' ')
-
-    user_options = []
-
-    def initialize_options(self):
-        pass
-
-    def finalize_options(self):
-        pass
-
-    def run(self):
-        here = os.path.dirname(os.path.abspath(__file__))
-
-        for path_spec in self.CLEAN_FILES:
-            # Make paths absolute and relative to this path
-            abs_paths = glob.glob(os.path.normpath(os.path.join(here, path_spec)))
-            for path in [str(p) for p in abs_paths]:
-                if not path.startswith(here):
-                    # Die if path in CLEAN_FILES is absolute + outside this directory
-                    raise ValueError("%s is not a path inside %s" % (path, here))
-                print('removing %s' % os.path.relpath(path))
-                shutil.rmtree(path)
-
 liconvert_files = [
     'liconvert',
     'COPYING.txt',
@@ -59,12 +33,12 @@ liconvert_files = [
 
 liconvert_paths = []
 for fname in liconvert_files:
-    liconvert_paths.append(f"splendaq/io/_liconvert/{fname}")
+    liconvert_paths.append(f"splendaq{os.sep}io{os.sep}_liconvert{os.sep}{fname}")
 
 
 setup(
     name="splendaq",
-    version=get_version('splendaq/_version.py'),
+    version=get_version(f'splendaq{os.sep}_version.py'),
     description="Data Acquisition for SPLENDOR",
     long_description=long_description,
     long_description_content_type='text/markdown',
@@ -73,17 +47,14 @@ setup(
     license_files = ('LICENSE', ),
     packages=find_packages(),
     zip_safe=False,
-    cmdclass={
-        'clean': CleanCommand,
-    },
     install_requires=[
         'numpy',
         'scipy',
         'matplotlib',
-        'moku',
+        'moku>=2.5',
         'h5py',
     ],
     data_files=[
-        ('splendaq/io/_liconvert/', liconvert_paths),
+        (f'splendaq{os.sep}io{os.sep}_liconvert{os.sep}', liconvert_paths),
     ],
 )
