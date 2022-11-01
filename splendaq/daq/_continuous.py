@@ -1,4 +1,3 @@
-import contextlib
 import time
 import os
 import numpy as np
@@ -7,104 +6,397 @@ from moku.instruments import Datalogger
 
 
 __all__ = [
-    "connect_logger",
-    "log_data",
+    "LogData",
 ]
 
 
-@contextlib.contextmanager
-def connect_logger(ip_address, force_connect=False):
+class LogData(object):
     """
-    Context manager for connecting to the Moku Datalogger module.
+    Class for managing the Datalogger object from the Moku package
+    to take data with various settings safely.
 
-    Parameters
+    Attributes
     ----------
-    ip_address : str
-        The IP address for the Moku to connect to.
-    force_connect : bool, optional
-        If the Moku is being used by some other source, setting to
-        True will supersede that source and connect. Default is False.
-
-    Returns
-    -------
-    DL : object
-        The Datalogger object connected to the specified Moku.
+    DL : moku.instruments.Datalogger
+        The wrapped Datalogger object that interfaces with the Moku.
 
     """
 
-    DL = Datalogger(ip_address, force_connect=force_connect)
-    try:
-        yield DL
-    except Exception as e:
-        raise e
-    finally:
-        DL.relinquish_ownership()
+    def __init__(self, ip_address, force_connect=False, fs=1.25e6,
+                 max_duration_per_file=60, acquisition_mode="Normal"):
+        """
+        Initialization of the LogData class.
 
+        Parameters
+        ----------
+        ip_address : str
+            The IP address of the Moku to connect to. If connecting via
+            USB-C, ensure to enclose the address with square brackets,
+            e.g. "[your_ip_address]".
+        force_connect : bool, optional
+            Take ownership of the Moku even if it is being used by
+            someone else. Default is False.
+        fs : float, optional
+            The digitization rate of the data to be taken in Hz.
+            Default is 1.25e6.
+        max_duration_per_file : float, optional
+            The maximum amount of seconds to save to a single file.
+            Avoids creating very large single files. Default is 60
+            seconds.
+        acquisition_mode : str, optional
+            Changes acquisition mode between 'Normal' and 'Precision'.
+            Precision mode is also known as decimation, it samples at
+            the full rate and averages excess data points to improve
+            precision. Normal mode works by direct down sampling,
+            throwing away extra data points. Default is 'Normal'.
 
-def log_data(ip_address, fs, duration, channels, savepath,
-             force_connect=False, comment='', file_name_prefix='',
-             max_duration_per_file=60):
-    """
-    Function for logging continuous data on a Moku for a specified
-    duration and channels.
+        """
 
-    Parameters
-    ----------
-    ip_address : str
-        The IP address for the Moku to connect to.
-    fs : float
-        The digitization rate of the data that will be logged.
-    duration : float
-        The amount of time in seconds that will be logged. Will not be
-        exactly followed due to time to tell the Moku to stop, and is
-        generally a lower bound per file.
-    channels : int, list of ints
-        Which channels to log, should be an integer from 1, 2, 3, or 4.
-        If multiple channels are to be logged, a list can be passed.
-    savepath : str
-        The local directory in which to save the logged file.
-    force_connect : bool, optional
-        If the Moku is being used by some other source, setting to
-        True will supersede that source and connect. Default is False.
-    comment : str, optional
-        An optional comment to store in the data, generally a
-        description of what the data is.
-    file_name_prefix : str, optional
-        An optional prefix for the filename. the default is given
-        by the Moku: MokuDataLoggerData.
-    max_duration_per_file : float, optional
-        The maximum amount of time per file in seconds. Default is
-        60 seconds.
+        self.DL = Datalogger(ip_address, force_connect=force_connect)
+        self.DL.set_samplerate(fs)
+        self.DL.set_acquisition_mode(acquisition_mode)
+        self._max_dur_per_file = max_duration_per_file
 
-    """
+    def __enter__(self):
+        """Returns self when entered via with."""
+        return self
 
-    with connect_logger(ip_address, force_connect=force_connect) as DL:
+    def __exit__(self, type, value, traceback):
+        """Always run the relinquish ownership when exiting."""
+        self.DL.relinquish_ownership()
+
+    def set_input_channels(self, channels, impedance="1MOhm", coupling="DC",
+                           vrange="400mVpp"):
+        """
+        Set which channels to save data from and which settings to use.
+
+        Parameters
+        ----------
+        channels : int, list of int
+            Which input channels to log data from. Can be a single
+            value for one channel, or a list of the channels. Valid
+            channel numbers of 1, 2, 3, and 4.
+        impedance : str, list of str, optional
+            The output impedance to use for each channel. Options are
+            '1MOhm' and '50Ohm'. Can pass a list of the same length as
+            channels if different impedances are desired. Default is
+            '1MOhm' for all channels.
+        coupling : str, list of str, optional
+            The coupling to use for each channel. Options are 'DC' and
+            'AC'. Can pass a list of the same length as channels if
+            different couplings are desired. Default is 'DC' for all
+            channels.
+        vrange : str, list of str, optional
+            The voltage range to use for each channel. Options are
+            '400mVpp', '4Vpp' and '40Vpp'. Can pass of list of the same
+            length as channels if different voltage ranges are desired
+            for specific channels. Default is '400mVpp' for all
+            channels.
+
+        """
+
         chan_list = [1, 2, 3, 4]
+
         if np.isscalar(channels):
             channels = [channels]
-
-        for channel in channels:
-            DL.set_frontend(
-                channel=channel,
-                impedance='1MOhm',
-                coupling="AC",
-                range="40Vpp",
-            )
+        if np.isscalar(impedance):
+            impedance = [impedance] * len(channels)
+        if np.isscalar(coupling):
+            coupling = [coupling] * len(channels)
+        if np.isscalar(vrange):
+            vrange = [vrange] * len(channels)
 
         disable_chans = [chan not in channels for chan in chan_list]
         for chan, disable in zip(chan_list, disable_chans):
             if disable:
-                DL.disable_channel(chan)
-        DL.set_samplerate(fs)
-        DL.set_acquisition_mode(mode='Normal')
+                self.DL.disable_channel(chan)
+            else:
+                ind = channels.index(chan)
+                self.DL.set_frontend(
+                    channel=chan,
+                    impedance=impedance[ind],
+                    coupling=coupling[ind],
+                    range=vrange[ind],
+                )
+
+    def sine_settings(self, amplitude=1, frequency=10000, offset=0, phase=0,
+                      symmetry=50):
+        """
+        Method to return a dictionary with the valid sine wave
+        settings to be passed to `self.set_output_channel`.
+
+        Parameters
+        ----------
+        amplitude : float, optional
+             Waveform peak-to-peak amplitude in Volts. Allowed values
+             are 2e-3 to 10 for the Moku:Go and 1e-3 to 10 for the
+             Moku:Pro (For Moku:Pro, the output voltage is limited to
+             between -1V and 1V above 1MHz). Default is 1 V.
+        frequency : float, optional
+             Waveform frequency in Hz. Allowed values are 1e-3 to 20e6
+             for the Moku:Go and 1e-3 to 500e6 for the Moku:Pro.
+             Default is 10000 Hz.
+        offset : float, optional
+             DC offset applied to the waveform in V. Allowed values are
+             -5 to 5 for Moku:Go and Moku:Pro (For Moku:Pro, the output
+             voltage is limited to between -1V and 1V above 1MHz).
+             Default is 0.
+        phase : float, optional
+            Waveform phase offset in degrees. Allowed values are 0 to
+            360 for Moku:Go and Moku:Pro. Default is 0.
+        symmetry : float, optional
+            Fraction of the cycle rising in %. Allowed values are 0.0
+            to 100.0 for Moku:Go and Moku:Pro. Default is 50.
+
+        Returns
+        -------
+        settings_dict : dict
+
+        """
+
+        return {
+            'amplitude': amplitude,
+            'frequency': frequency,
+            'offset': offset,
+            'phase': phase,
+            'symmetry': symmetry,
+        }
+
+    def square_settings(self, amplitude=1, frequency=10000, offset=0, phase=0, duty=50, symmetry=50):
+        """
+        Method to return a dictionary with the valid square wave
+        settings to be passed to `self.set_output_channel`.
+
+        Parameters
+        ----------
+        amplitude : float, optional
+             Waveform peak-to-peak amplitude in Volts. Allowed values
+             are 2e-3 to 10 for the Moku:Go and 1e-3 to 10 for the
+             Moku:Pro (For Moku:Pro, the output voltage is limited to
+             between -1V and 1V above 1MHz). Default is 1 V.
+        frequency : float, optional
+             Waveform frequency in Hz. Allowed values are 1e-3 to 20e6
+             for the Moku:Go and 1e-3 to 500e6 for the Moku:Pro.
+             Default is 10000 Hz.
+        offset : float, optional
+             DC offset applied to the waveform in V. Allowed values are
+             -5 to 5 for Moku:Go and Moku:Pro (For Moku:Pro, the output
+             voltage is limited to between -1V and 1V above 1MHz).
+             Default is 0.
+        phase : float, optional
+            Waveform phase offset in degrees. Allowed values are 0 to
+            360 for Moku:Go and Moku:Pro. Default is 0.
+        duty : float, optional
+            Duty cycle as percentage in %. Allowed values are 0 to 100
+            for Moku:Go and Moku:Pro. Default is 0.
+        symmetry : float, optional
+            Fraction of the cycle rising in %. Allowed values are 0.0
+            to 100.0 for Moku:Go and Moku:Pro. Default is 50.
+
+        Returns
+        -------
+        settings_dict : dict
+            A dictionary containing all of the required settings
+            needed to set up a square wave output.
+
+        """
+
+        return {
+            'amplitude': amplitude,
+            'frequency': frequency,
+            'offset': offset,
+            'phase': phase,
+            'duty': duty,
+            'symmetry': symmetry,
+        }
+
+    def ramp_settings(self, amplitude=1, frequency=10000, offset=0, phase=0, symmetry=50):
+        """
+        Method to return a dictionary with the valid ramp wave
+        settings to be passed to `self.set_output_channel`.
+
+        Parameters
+        ----------
+        amplitude : float, optional
+             Waveform peak-to-peak amplitude in Volts. Allowed values
+             are 2e-3 to 10 for the Moku:Go and 1e-3 to 10 for the
+             Moku:Pro (For Moku:Pro, the output voltage is limited to
+             between -1V and 1V above 1MHz). Default is 1 V.
+        frequency : float, optional
+             Waveform frequency in Hz. Allowed values are 1e-3 to 20e6
+             for the Moku:Go and 1e-3 to 500e6 for the Moku:Pro.
+             Default is 10000 Hz.
+        offset : float, optional
+             DC offset applied to the waveform in V. Allowed values are
+             -5 to 5 for Moku:Go and Moku:Pro (For Moku:Pro, the output
+             voltage is limited to between -1V and 1V above 1MHz).
+             Default is 0.
+        phase : float, optional
+            Waveform phase offset in degrees. Allowed values are 0 to
+            360 for Moku:Go and Moku:Pro. Default is 0.
+        symmetry : float, optional
+            Fraction of the cycle rising in %. Allowed values are 0.0
+            to 100.0 for Moku:Go and Moku:Pro. Default is 50.
+
+        Returns
+        -------
+        settings_dict : dict
+            A dictionary containing all of the required settings
+            needed to set up a ramp wave output.
+
+        """
+
+        return {
+            'amplitude': amplitude,
+            'frequency': frequency,
+            'offset': offset,
+            'phase': phase,
+            'symmetry': symmetry,
+        }
+
+    def pulse_settings(self, amplitude=1, frequency=10000, offset=0, phase=0,
+                       symmetry=50, edge_time=0, pulse_width=0):
+        """
+        Method to return a dictionary with the valid pulse train
+        settings to be passed to `self.set_output_channel`.
+
+        Parameters
+        ----------
+        amplitude : float, optional
+             Waveform peak-to-peak amplitude in Volts. Allowed values
+             are 2e-3 to 10 for the Moku:Go and 1e-3 to 10 for the
+             Moku:Pro (For Moku:Pro, the output voltage is limited to
+             between -1V and 1V above 1MHz). Default is 1 V.
+        frequency : float, optional
+             Waveform frequency in Hz. Allowed values are 1e-3 to 20e6
+             for the Moku:Go and 1e-3 to 500e6 for the Moku:Pro.
+             Default is 10000 Hz.
+        offset : float, optional
+             DC offset applied to the waveform in V. Allowed values are
+             -5 to 5 for Moku:Go and Moku:Pro (For Moku:Pro, the output
+             voltage is limited to between -1V and 1V above 1MHz).
+             Default is 0.
+        phase : float, optional
+            Waveform phase offset in degrees. Allowed values are 0 to
+            360 for Moku:Go and Moku:Pro. Default is 0.
+        symmetry : float, optional
+            Fraction of the cycle rising in %. Allowed values are 0.0
+            to 100.0 for Moku:Go and Moku:Pro. Default is 50.
+        edge_time : float, optional
+            Edge-time of the waveform in s. Allowed values are 16e-9 to
+            pulse_width for the Moku:Go and 2e-9 to pulse_width for the
+            Moku:Pro. Default is 0 (i.e. the shortest time).
+        pulse_width : float, optional
+            Pulse width of the waveform in s. Allowed values are 16e-9
+            to waveform period for the Moku:Go and 2e-9 to waveform
+            period for the Moku:Pro. Default is 0 (i.e. ths shortest
+            time).
+
+        Returns
+        -------
+        settings_dict : dict
+            A dictionary containing all of the required settings
+            needed to set up a pulse train output.
+
+        """
+
+        return {
+            'amplitude': amplitude,
+            'frequency': frequency,
+            'offset': offset,
+            'phase': phase,
+            'symmetry': symmetry,
+            'edge_time': edge_time,
+            'pulse_width': pulse_width,
+        }
+
+    def dc_settings(self, dc_level=0):
+        """
+        Method to return a dictionary with the valid DC value
+        settings to be passed to `self.set_output_channel`.
+
+        Parameters
+        ----------
+        dc_level : float, optional
+            The DC level of the output of the channel in V.
+            Default is 0.
+
+        Returns
+        -------
+        settings_dict : dict
+            A dictionary containing all of the required settings
+            needed to set up a DC output.
+
+        """
+
+        return {
+            'dc_level': dc_level,
+        }
+
+    def set_output_channel(self, channel, waveformtype, load="1MOhm",
+                           **settings):
+        """
+        Method to turn on an output channel and generate the speicified
+        waveform. Use the various self.*_settings() methods to
+        generate the various valid settings. Can only set one channel
+        at a time.
+
+        Parameters
+        ----------
+        channel : int
+            The output channel to generate a waveform on. Must be an
+            integer of 1, 2,3 or 4.
+        waveformtype : str
+            The waveform type to generate, must be one of 'Sine',
+            'Square', 'Ramp', 'Pulse', 'DC'.
+        load : str, optional
+            The load impedance to use for the output channel. Must be
+            one of '1MOhm' or '50Ohm'. Default is '1MOhm'.
+        settings : dict
+            The dictionary containing all of the settings needed for
+            the specified waveform type
+
+        """
+
+        self.DL.set_output_load(channel, load)
+        self.DL.generate_waveform(
+            channel,
+            waveformtype,
+            **settings,
+        )
+
+
+    def log_data(self, duration, savepath='./', comments='',
+                 file_name_prefix=''):
+        """
+        Method to log data after setting up the desired configuration.
+        Saves a LI file to the specified save path.
+
+        Parameters
+        ----------
+        duration : float
+            The total number of seconds to log data with the current
+            configuration.
+        savepath : str, optional
+            The absolute path on to save the LI file after it has been
+            logged by the Moku. Default is the current working
+            directory.
+        comments : str, optional
+            Any comments that should be added to the metadata of the
+            file to be saved. Default is an empty string.
+        file_name_prefix : str, optional
+            Prefix to use in the filename. Default is set by the Moku
+            as "MokuDataLoggerData".
+
+        """
 
         filenames = []
-        nfiles = int(np.ceil(duration / max_duration_per_file))
+        nfiles = np.int64(np.ceil(duration / self._max_dur_per_file))
 
         for ii in range(nfiles):
-            logfile = DL.start_logging(
+            logfile = self.DL.start_logging(
                 duration=duration,
-                comments=comment,
+                comments=comments,
                 file_name_prefix=file_name_prefix,
             )
             # Track progress percentage of the data logging session
@@ -113,16 +405,18 @@ def log_data(ip_address, fs, duration, channels, savepath,
                 # Wait for the logging session to progress by sleeping 0.5sec
                 time.sleep(0.5)
                 # Get current progress percentage and print it out
-                progress = DL.logging_progress()
-                remaining_time = progress['time_remaining']
-                is_logging = remaining_time >= 0
+                try:
+                    progress = self.DL.logging_progress()
+                    remaining_time = progress['time_remaining']
+                    is_logging = remaining_time >= 0
+                except:
+                    is_logging = False
 
             filenames.append(logfile['file_name'])
 
         for fname in filenames:
-            DL.download(
+            self.DL.download(
                 "ssd",
                 fname,
                 os.path.abspath(savepath + os.sep + fname),
             )
-
