@@ -11,8 +11,7 @@ import h5py
 __all__ = [
     "Reader",
     "Writer",
-    "convert_li",
-    "convert_to_h5",
+    "convert_li_to_h5",
 ]
 
 
@@ -175,7 +174,7 @@ class Writer(object):
                 
 
 
-def convert_li(file, filetype='mat'):
+def convert_li(file, my_os, filetype='mat'):
     """
     Python wrapper for liconvert executable for converting `.li` files
     to `.csv`, `.mat`, or `.npy`.
@@ -184,22 +183,45 @@ def convert_li(file, filetype='mat'):
     ----------
     file : str
         The absolute file path and name to the `.li` file to convert.
+    my_os : str
+        The operating system to assume when trying to convert a file.
+        Can be 'mac', 'linux', or 'windows'.
     filetype : str, optional
         The file type to convert `file` to, can be "csv", "npy", or
         "mat". Default is "mat".
 
+    Returns
+    -------
+    subprocess_obj : CompletedProcess
+        The completed subprocess, including information on what was
+        run and error code.
+
+    Raises
+    ------
+    ValueError
+        If `os` is not one of 'mac', 'linux', or 'windows'.
+
     """
+
+    if my_os == "mac":
+        exe = "liconvert_macos"
+    elif my_os == "linux":
+        exe = "liconvert_linux"
+    elif my_os == "windows":
+        exe = "liconvert_windows.exe"
+    else:
+        raise ValueError("Check docstring for supported OSs")
 
     return subprocess.run(
         [os.path.join(
             THIS_DIRECTORY,
-            '_liconvert/liconvert',
+            f'_liconvert{os.sep}{exe}',
         ), f"--{filetype}", file],
         stdout=False,
     )
 
 
-def convert_to_h5(li_file):
+def convert_li_to_h5(li_file, my_os):
     """
     Converting a LI file to a splendaq HDF5 file.
 
@@ -208,10 +230,13 @@ def convert_to_h5(li_file):
     li_file : str
         The path to the binary LI file to convert to a splendaq HDF5
         file.
+    my_os : str
+        The operating system to assume when trying to convert a file.
+        Can be 'mac', 'linux', or 'windows'.
 
     """
 
-    convert_li(li_file, filetype='mat')
+    convert_li(li_file, my_os, filetype='mat')
     mat_filename = Path(li_file).with_suffix('.mat')
     mat_file = loadmat(mat_filename, simplify_cells=True)['moku']
     os.remove(mat_filename)
