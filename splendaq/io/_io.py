@@ -174,7 +174,7 @@ class Writer(object):
                 
 
 
-def convert_li(file, os, filetype='mat'):
+def convert_li(file, my_os, filetype='mat'):
     """
     Python wrapper for liconvert executable for converting `.li` files
     to `.csv`, `.mat`, or `.npy`.
@@ -183,7 +183,7 @@ def convert_li(file, os, filetype='mat'):
     ----------
     file : str
         The absolute file path and name to the `.li` file to convert.
-    os : str
+    my_os : str
         The operating system to assume when trying to convert a file.
         Can be 'mac', 'linux', or 'windows'.
     filetype : str, optional
@@ -203,11 +203,11 @@ def convert_li(file, os, filetype='mat'):
 
     """
 
-    if os == "mac":
+    if my_os == "mac":
         exe = "liconvert_macos"
-    elif os == "linux":
+    elif my_os == "linux":
         exe = "liconvert_linux"
-    if os == "windows":
+    elif my_os == "windows":
         exe = "liconvert_windows.exe"
     else:
         raise ValueError("Check docstring for supported OSs")
@@ -221,7 +221,7 @@ def convert_li(file, os, filetype='mat'):
     )
 
 
-def convert_li_to_h5(li_file, os):
+def convert_li_to_h5(li_file, my_os):
     """
     Converting a LI file to a splendaq HDF5 file.
 
@@ -230,13 +230,13 @@ def convert_li_to_h5(li_file, os):
     li_file : str
         The path to the binary LI file to convert to a splendaq HDF5
         file.
-    os : str
+    my_os : str
         The operating system to assume when trying to convert a file.
         Can be 'mac', 'linux', or 'windows'.
 
     """
 
-    convert_li(li_file, os, filetype='mat')
+    convert_li(li_file, my_os, filetype='mat')
     mat_filename = Path(li_file).with_suffix('.mat')
     mat_file = loadmat(mat_filename, simplify_cells=True)['moku']
     os.remove(mat_filename)
