@@ -27,7 +27,9 @@ def get_version(rel_path):
         raise RuntimeError("Unable to find version string.")
 
 liconvert_files = [
-    'liconvert',
+    'liconvert_windows.exe',
+    'liconvert_macos',
+    'liconvert_linux',
     'COPYING.txt',
 ]
 
