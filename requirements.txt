@@ -1,0 +1,5 @@
+numpy
+scipy
+matplotlib
+moku>=2.5
+h5py
