@@ -1,0 +1,2 @@
+include src/splendaq/io/_liconvert/liconvert*
+include src/splendaq/io/_liconvert/COPYING.txt

@@ -13,7 +13,7 @@
 ### ignore compiled Python code
 build/*
 dist/*
-*.egg-info/*
+src/*.egg-info/*
 
 ### ignore autosaved files
 
