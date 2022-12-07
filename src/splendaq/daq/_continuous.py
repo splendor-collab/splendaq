@@ -4,26 +4,7 @@ import itertools
 import numpy as np
 import yaml
 
-import moku
-from moku import instruments
-
-# monkey patch for fixing proxies
-class NewRequestSession(moku.session.RequestSession):
-    def __init__(self, ip, force_connect, ignore_busy, persist_state,
-                 connect_timeout, read_timeout):
-        super().__init__(ip, force_connect, ignore_busy, persist_state,
-                         connect_timeout, read_timeout)
-        self.rs.proxies.update(
-            {
-                "https": "",
-                "http": "",
-            }
-        )
-        self.rs.trust_env = False
-
-moku.session.RequestSession = NewRequestSession
-moku.instruments._datalogger.Moku = moku.Moku
-Datalogger = instruments.Datalogger
+from moku.instruments import Datalogger
 
 
 __all__ = [
@@ -451,13 +432,46 @@ class LogData(object):
             )
 
 class Sequencer(object):
+    """
+    Class for running a DC sequencer with various inputs read out,
+    while changing various outputs by specified steps.
+
+    Attributes
+    ----------
+    yaml_dict : dict
+        A dictionary containing all of the settings to be used for
+        taking data with the sequencer.
+
+    """
 
     def __init__(self, yaml_file):
-        
+        """
+        Initialization of the Sequencer given a YAML file which
+        contains all of the settings to be used.
+
+        Parameters
+        ----------
+        yaml_file : str
+            The absolute path to the YAML file to be used to set up
+            the sequencer for data taking.
+
+        """
+
         with open(yaml_file, 'r') as f:
             self.yaml_dict = yaml.safe_load(f)
 
-    def run(self):
+    def run(self, verbose=True):
+        """
+        Begin running the sequencer.
+
+        Parameters
+        ----------
+        verbose : bool, optional
+            If True, prints out information on the current point
+            being run by the sequencer.
+
+        """
+
         input_list = [
             int(k[5:]) for k in self.yaml_dict if (
                 "input" in k and self.yaml_dict[k]['log']
@@ -469,6 +483,7 @@ class Sequencer(object):
                 "output" in k and self.yaml_dict[k]['apply']
             )
         ]
+
         output_ranges = [
             np.linspace(
                 val['vstart'],
@@ -488,7 +503,17 @@ class Sequencer(object):
                         dc_level=outputs[output_list.index(ii)],
                     )
                     LOG.set_output_channel(ii, 'DC', **dc_settings)
-                print(''.join([f"Output{b} = {a} V," for a, b in zip(outputs, output_list)])[:-1])
+                if verbose:
+                    print(
+                        ''.join(
+                            [
+                                f"Output{b} = {a} V, " for a, b in zip(
+                                    outputs,
+                                    output_list,
+                                )
+                            ]
+                        )[:-1]
+                    )
 
                 LOG.log_data(
                     self.yaml_dict['moku']['duration_per_file'],
