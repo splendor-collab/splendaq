@@ -1,12 +1,34 @@
 import time
 import os
+import itertools
 import numpy as np
+import yaml
 
-from moku.instruments import Datalogger
+import moku
+from moku import instruments
+
+# monkey patch for fixing proxies
+class NewRequestSession(moku.session.RequestSession):
+    def __init__(self, ip, force_connect, ignore_busy, persist_state,
+                 connect_timeout, read_timeout):
+        super().__init__(ip, force_connect, ignore_busy, persist_state,
+                         connect_timeout, read_timeout)
+        self.rs.proxies.update(
+            {
+                "https": "",
+                "http": "",
+            }
+        )
+        self.rs.trust_env = False
+
+moku.session.RequestSession = NewRequestSession
+moku.instruments._datalogger.Moku = moku.Moku
+Datalogger = instruments.Datalogger
 
 
 __all__ = [
     "LogData",
+    "Sequencer",
 ]
 
 
@@ -427,3 +449,48 @@ class LogData(object):
                 fname,
                 os.path.abspath(savepath + os.sep + fname),
             )
+
+class Sequencer(object):
+
+    def __init__(self, yaml_file):
+        
+        with open(yaml_file, 'r') as f:
+            self.yaml_dict = yaml.safe_load(f)
+
+    def run(self):
+        input_list = [
+            int(k[5:]) for k in self.yaml_dict if (
+                "input" in k and self.yaml_dict[k]['log']
+            )
+        ]
+
+        output_list = [
+            int(k[6:]) for k in self.yaml_dict if (
+                "output" in k and self.yaml_dict[k]['apply']
+            )
+        ]
+        output_ranges = [
+            np.linspace(
+                val['vstart'],
+                val['vend'],
+                num=val['nstep'],
+            ) for k, val in self.yaml_dict.items() if (
+                "output" in k and self.yaml_dict[k]['apply']
+            )
+        ]
+
+        for outputs in itertools.product(*output_ranges):
+            with LogData(self.yaml_dict['moku']['ip']) as LOG:
+                LOG.set_input_channels(input_list)
+
+                for ii in output_list:
+                    dc_settings = LOG.dc_settings(
+                        dc_level=outputs[output_list.index(ii)],
+                    )
+                    LOG.set_output_channel(ii, 'DC', **dc_settings)
+                print(''.join([f"Output{b} = {a} V," for a, b in zip(outputs, output_list)])[:-1])
+
+                LOG.log_data(
+                    self.yaml_dict['moku']['duration_per_file'],
+                    file_name_prefix=f"splendaq_iv",
+                )
