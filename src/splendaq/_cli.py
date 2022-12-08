@@ -48,8 +48,19 @@ def add_sequencer_parser(subparsers):
         "yaml_file", help="YAML file containing sequencer setup.",
     )
 
+    parser_sequencer.add_argument(
+        "--noprint",
+        action="store_false",
+        help="""Do not print output DC voltage values.""",
+    )
+
     parser_sequencer.set_defaults(func=sequencer_cli)
 
 def sequencer_cli(args):
+    """
+    Sequencer command line interface.
+    
+    """
+
     SEQ = Sequencer(args.yaml_file)
-    SEQ.run()
+    SEQ.run(args.noprint)
