@@ -119,7 +119,8 @@ class LogData(object):
                     range=vrange[ind],
                 )
 
-    def sine_settings(self, amplitude=1, frequency=10000, offset=0, phase=0,
+    @staticmethod
+    def sine_settings(amplitude=1, frequency=10000, offset=0, phase=0,
                       symmetry=50):
         """
         Method to return a dictionary with the valid sine wave
@@ -162,7 +163,9 @@ class LogData(object):
             'symmetry': symmetry,
         }
 
-    def square_settings(self, amplitude=1, frequency=10000, offset=0, phase=0, duty=50, symmetry=50):
+    @staticmethod
+    def square_settings(amplitude=1, frequency=10000, offset=0, phase=0,
+                        duty=50, symmetry=50):
         """
         Method to return a dictionary with the valid square wave
         settings to be passed to `self.set_output_channel`.
@@ -210,7 +213,9 @@ class LogData(object):
             'symmetry': symmetry,
         }
 
-    def ramp_settings(self, amplitude=1, frequency=10000, offset=0, phase=0, symmetry=50):
+    @staticmethod
+    def ramp_settings(amplitude=1, frequency=10000, offset=0, phase=0,
+                      symmetry=50):
         """
         Method to return a dictionary with the valid ramp wave
         settings to be passed to `self.set_output_channel`.
@@ -254,7 +259,8 @@ class LogData(object):
             'symmetry': symmetry,
         }
 
-    def pulse_settings(self, amplitude=1, frequency=10000, offset=0, phase=0,
+    @staticmethod
+    def pulse_settings(amplitude=1, frequency=10000, offset=0, phase=0,
                        symmetry=50, edge_time=0, pulse_width=0):
         """
         Method to return a dictionary with the valid pulse train
@@ -310,7 +316,8 @@ class LogData(object):
             'pulse_width': pulse_width,
         }
 
-    def dc_settings(self, dc_level=0):
+    @staticmethod
+    def dc_settings(dc_level=0):
         """
         Method to return a dictionary with the valid DC value
         settings to be passed to `self.set_output_channel`.
@@ -391,7 +398,7 @@ class LogData(object):
         """
 
         filenames = []
-        nfiles = np.int64(np.ceil(duration / self._max_dur_per_file))
+        nfiles = np.int32(np.ceil(duration / self._max_dur_per_file))
 
         for ii in range(nfiles):
             logfile = self.DL.start_logging(
@@ -404,7 +411,7 @@ class LogData(object):
             while is_logging:
                 # Wait for the logging session to progress by sleeping 0.5sec
                 time.sleep(0.5)
-                # Get current progress percentage and print it out
+                # Get current progress percentage and check if it's complete
                 try:
                     progress = self.DL.logging_progress()
                     remaining_time = progress['time_remaining']

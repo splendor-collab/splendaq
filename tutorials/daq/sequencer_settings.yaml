@@ -1,0 +1,32 @@
+moku:
+    ip: "your_moku_ip_address"
+    fs: 1.25e+6
+    duration_per_file: 30
+input1:
+    log: True
+input2:
+    log: False
+input3:
+    log: False
+input4:
+    log: False
+output1:
+    apply: True
+    vstart: 0
+    vend: 1
+    nstep: 2
+output2:
+    apply: True
+    vstart: 0
+    vend: 1
+    nstep: 2
+output3:
+    apply: False
+    vstart: 0
+    vend: 1
+    nstep: 10
+output4:
+    apply: False
+    vstart: 0
+    vend: 1
+    nstep: 10
