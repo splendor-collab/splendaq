@@ -1,15 +1,25 @@
 moku:
     ip: "your_moku_ip_address"
     fs: 1.25e+6
-    duration_per_file: 30
+    duration_per_file: 10
+    acquisition_mode: "Precision"
+    force_connect: False
 input1:
     log: True
+    vrange: "4Vpp"
+    impedance: "1MOhm"
 input2:
     log: False
+    vrange: "4Vpp"
+    impedance: "1MOhm"
 input3:
     log: False
+    vrange: "4Vpp"
+    impedance: "1MOhm"
 input4:
     log: False
+    vrange: "4Vpp"
+    impedance: "1MOhm"
 output1:
     apply: True
     vstart: 0

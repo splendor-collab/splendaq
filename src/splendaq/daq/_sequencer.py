@@ -56,6 +56,17 @@ class Sequencer(object):
             )
         ]
 
+        input_dict = [
+            d for k, d in self.yaml_dict.items() if (
+                "input" in k and self.yaml_dict[k]['log']
+            )
+        ]
+
+        input_settings = {
+            "vrange": [d['vrange'] for d in input_dict],
+            "impedance": [d['impedance'] for d in input_dict],
+        }
+
         output_list = [
             int(k[6:]) for k in self.yaml_dict if (
                 "output" in k and self.yaml_dict[k]['apply']
@@ -73,8 +84,12 @@ class Sequencer(object):
         ]
 
         for outputs in itertools.product(*output_ranges):
-            with LogData(self.yaml_dict['moku']['ip']) as LOG:
-                LOG.set_input_channels(input_list)
+            with LogData(
+                self.yaml_dict['moku']['ip'],
+                force_connect=self.yaml_dict['moku']['force_connect'],
+                acquisition_mode=self.yaml_dict['moku']['acquisition_mode'],
+            ) as LOG:
+                LOG.set_input_channels(input_list, **input_settings)
 
                 for ii in output_list:
                     dc_settings = LOG.dc_settings(
