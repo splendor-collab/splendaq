@@ -23,7 +23,8 @@ class LogData(object):
     """
 
     def __init__(self, ip_address, force_connect=False, fs=None,
-                 max_duration_per_file=60, acquisition_mode="Normal"):
+                 max_duration_per_file=60,
+                 acquisition_mode="Precision"):
         """
         Initialization of the LogData class.
 
@@ -55,7 +56,7 @@ class LogData(object):
             Precision mode is also known as decimation, it samples at
             the full rate and averages excess data points to improve
             precision. Normal mode works by direct down sampling,
-            throwing away extra data points. Default is 'Normal'.
+            throwing away extra data points. Default is 'Precision'.
 
         """
 
