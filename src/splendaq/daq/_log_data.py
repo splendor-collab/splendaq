@@ -416,9 +416,9 @@ class LogData(object):
 
         Parameters
         ----------
-        duration : float
+        duration : integer
             The total number of seconds to log data with the current
-            configuration.
+            configuration. Must be an integer.
         savepath : str, optional
             The absolute path on to save the LI file after it has been
             logged by the Moku. Default is the current working
