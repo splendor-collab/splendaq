@@ -5,7 +5,7 @@ moku:
     duration_per_point: 1
     time_between_points: 1
     acquisition_mode: "Precision"
-    force_connect: True
+    force_connect: False
     savepath: "./"
 input1:
     log: True
