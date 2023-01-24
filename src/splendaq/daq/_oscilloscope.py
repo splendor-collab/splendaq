@@ -154,11 +154,6 @@ class Oscilloscope(object):
 
         """
 
-        if self._device == "Moku:Pro":
-            chan_list = [1, 2, 3, 4]
-        elif self._device == "Moku:Go":
-            chan_list = [1, 2]
-
         if np.isscalar(channels):
             channels = [channels]
         if np.isscalar(waveformtype):
@@ -168,7 +163,7 @@ class Oscilloscope(object):
         if np.isscalar(dc_level):
             dc_level = [dc_level] * len(channels)
 
-        for ind, chan in enumerate(chan_list):
+        for ind, chan in enumerate(channels):
             if self._device == "Moku:Pro":
                 self.Osc.set_output_load(chan, load[ind])
             self.Osc.generate_waveform(
