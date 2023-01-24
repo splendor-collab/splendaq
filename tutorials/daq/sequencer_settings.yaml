@@ -1,9 +1,12 @@
 moku:
     ip: "your_moku_ip_address"
-    fs: 1.25e+6
-    duration_per_file: 10
+    sequencer_mode: "full"
+    fs: 1.25e+6 # only used by full mode
+    duration_per_point: 1
+    time_between_points: 1
     acquisition_mode: "Precision"
     force_connect: False
+    savepath: "./"
 input1:
     log: True
     vrange: "4Vpp"
