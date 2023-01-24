@@ -3,6 +3,7 @@ import itertools
 import numpy as np
 import os
 import time
+import warnings
 import yaml
 
 from splendaq.daq import LogData, Oscilloscope
@@ -124,9 +125,9 @@ class Sequencer(object):
         input_list, input_settings, output_list, output_ranges = self._init_run()
 
         with LogData(
-                self.yaml_dict['moku']['ip'],
-                force_connect=self.yaml_dict['moku']['force_connect'],
-                acquisition_mode=self.yaml_dict['moku']['acquisition_mode'],
+            self.yaml_dict['moku']['ip'],
+            force_connect=self.yaml_dict['moku']['force_connect'],
+            acquisition_mode=self.yaml_dict['moku']['acquisition_mode'],
             ) as LOG:
 
             LOG.set_input_channels(input_list, **input_settings)
@@ -158,7 +159,9 @@ class Sequencer(object):
         """
 
         input_list, input_settings, output_list, output_ranges = self._init_run()
-        product_len = np.multiply(*[len(arr) for arr in output_ranges])
+        product_len = np.multiply.reduce(
+            [len(arr) for arr in output_ranges] + [1]
+        )
         data_array = np.zeros(
             (product_len, len(input_list) + len(output_list))
         )
@@ -169,9 +172,9 @@ class Sequencer(object):
         ]
 
         with Oscilloscope(
-                self.yaml_dict['moku']['ip'],
-                force_connect=self.yaml_dict['moku']['force_connect'],
-                acquisition_mode=self.yaml_dict['moku']['acquisition_mode'],
+            self.yaml_dict['moku']['ip'],
+            force_connect=self.yaml_dict['moku']['force_connect'],
+            acquisition_mode=self.yaml_dict['moku']['acquisition_mode'],
             ) as Osc:
 
             Osc.set_input_channels(input_list, **input_settings)
@@ -190,9 +193,19 @@ class Sequencer(object):
                     self.yaml_dict['moku']['duration_per_point'],
                 )
 
-                data_array[n, :len(input_list)] = [
-                    np.mean(data[f'ch{ii + 1}']) for ii in range(len(input_list))
-                ]
+                for ii in range(len(input_list)):
+                    if 'nan' in data[f'ch{ii + 1}']:
+                        warnings.warn(
+                            """NaNs detected in data at this bias """
+                            """point, tossing the NaNs"""
+                        )
+                        arr_float = np.asarray(
+                            data[f'ch{ii + 1}'], dtype=float,
+                        )
+                        data_array[n, ii] = np.nanmean(arr_float)
+                    else:
+                        data_array[n, ii] = np.mean(data[f'ch{ii + 1}'])
+
                 data_array[n, len(input_list):] = outputs
 
         date_str = datetime.now().strftime('%Y%m%d_%H%M%S')
