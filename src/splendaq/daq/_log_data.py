@@ -60,7 +60,9 @@ class LogData(object):
 
         """
 
-        self.DL = Datalogger(ip_address, force_connect=force_connect)
+        self.DL = Datalogger(
+            ip_address, force_connect=force_connect, session_trust_env=False,
+        )
         self.DL.set_acquisition_mode(acquisition_mode)
         self._max_dur_per_file = max_duration_per_file
 
@@ -83,7 +85,21 @@ class LogData(object):
         return self
 
     def __exit__(self, type, value, traceback):
-        """Always run relinquish ownership when exiting."""
+        """
+        Always run relinquish ownership and turn off inputs and outputs
+        when exiting.
+
+        """
+
+        if self._device == "Moku:Pro":
+            chan_list = [1, 2, 3, 4]
+        elif self._device == "Moku:Go":
+            chan_list = [1, 2]
+
+        for chan in chan_list:
+            self.DL.generate_waveform(chan, 'Off') # disable outputs
+            self.DL.disable_channel(chan) # disable inputs
+
         self.DL.relinquish_ownership()
 
     def set_input_channels(self, channels, impedance="1MOhm", coupling="DC",
