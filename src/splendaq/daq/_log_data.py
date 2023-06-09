@@ -454,8 +454,13 @@ class LogData(object):
         nfiles = np.int32(np.ceil(duration / self._max_dur_per_file))
 
         for ii in range(nfiles):
+            if (ii + 1) * self._max_dur_per_file > duration:
+                this_file_duration = duration % self._max_dur_per_file
+            else:
+                this_file_duration = self._max_dur_per_file
+
             logfile = self.DL.start_logging(
-                duration=duration,
+                duration=this_file_duration,
                 comments=comments,
                 file_name_prefix=file_name_prefix,
             )
