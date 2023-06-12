@@ -361,7 +361,7 @@ class EventBuilder(object):
 
 
     @staticmethod
-    def _smart_trigger(trace, threshold):
+    def _smart_trigger(trace, threshold, mergewindow):
         """
         Method for carrying out a "smart" triggering algorithm, where
         the turn on threshold is specified, and the turn off threshold
@@ -403,10 +403,26 @@ class EventBuilder(object):
         if len(ind_list)==0:
             return []
 
-        return np.vstack(ind_list)
+        ind_array = np.vstack(ind_list)
+
+        if mergewindow is not None:
+            ind_array_flat = ind_array.flatten()
+            arr = (ind_array_flat[1:] - ind_array_flat[:-1])[1::2] < mergewindow
+
+            inds_keep = [0]
+            for ii, b in enumerate(arr):
+                if ~b:
+                    inds_keep.extend([2 * ii + 1, 2 * ii + 2])
+            inds_keep.append(-1)
+
+            ind_array_out = ind_array_flat[inds_keep].reshape(len(inds_keep)//2, 2)
+
+            return ind_array_out
+
+        return ind_array
 
 
-    def acquire_pulses(self, template, psd, threshold, tchan):
+    def acquire_pulses(self, template, psd, threshold, tchan, mergewindow=None):
         """
         Method to carry out the offline triggering algorithm based on
         the OF formalism in time domain. Only trigeers on one specified
@@ -429,8 +445,14 @@ class EventBuilder(object):
         tchan : int
             The channel, designated by array index, to set a threshold
             on and extract events with amplitudes above the threshold.
+        mergewindow : int, NoneType, optional
+            Window within which to merge triggers, in units of number of
+            time bins. Defaults to no merging. It is not recommended to
+            set this to above half of a trace length, as substantial
+            dead time may be accrued.
         
         """
+
         self._template = template
         self._psd = psd
         self._nthreshold = threshold
@@ -473,11 +495,11 @@ class EventBuilder(object):
 
                 if posthreshold:
                     ranges = EventBuilder._smart_trigger(
-                        filt, self._threshold,
+                        filt, self._threshold, mergewindow,
                     )
                 else:
                     ranges = EventBuilder._smart_trigger(
-                        -filt, -self._threshold,
+                        -filt, -self._threshold, mergewindow,
                     )
 
                 if len(ranges)==0:
