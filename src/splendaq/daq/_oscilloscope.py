@@ -170,8 +170,8 @@ class Oscilloscope(object):
             '50Ohm'. For a Moku:Go, this can only be '1MOhm'. Default
             is '1MOhm'.
         dc_level : float, list of float, optional
-            The dictionary containing all of the settings needed for
-            the specified waveform type. Default is 0.
+            The DC level of the output of the channel in V. Default is
+            0.
 
         """
 
