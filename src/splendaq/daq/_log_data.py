@@ -498,9 +498,16 @@ class LogData(object):
 
             filenames.append(logfile['file_name'])
 
+        if self._device == "Moku:Pro":
+            target = "ssd"
+        elif self._device == "Moku:Lab":
+            target = "media"
+        elif self._device == "Moku:Go":
+            target = "persist"
+
         for fname in filenames:
             self.DL.download(
-                "ssd" if self._device == "Moku:Pro" else "persist",
+                target,
                 fname,
                 os.path.abspath(savepath + os.sep + fname),
             )
