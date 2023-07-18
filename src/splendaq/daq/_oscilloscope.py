@@ -51,9 +51,9 @@ class Oscilloscope(object):
         self.Osc.set_acquisition_mode(acquisition_mode)
 
         self._device = self.Osc.describe()['hardware']
-        if self._device not in ['Moku:Pro', 'Moku:Go']:
+        if self._device not in ['Moku:Pro', 'Moku:Lab', 'Moku:Go']:
             raise ValueError(
-                "Unrecognized device, is not a Moku:Go or Moku:Pro."
+                "Unrecognized device, is not a Moku:Go, Moku:Lab, or Moku:Pro."
             )
 
     def __enter__(self):
@@ -69,7 +69,7 @@ class Oscilloscope(object):
 
         if self._device == "Moku:Pro":
             chan_list = [1, 2, 3, 4]
-        elif self._device == "Moku:Go":
+        elif self._device in ["Moku:Lab", "Moku:Go"]:
             chan_list = [1, 2]
 
         for chan in chan_list:
@@ -89,13 +89,13 @@ class Oscilloscope(object):
             Which input channels to log data from. Can be a single
             value for one channel, or a list of the channels. For the
             Moku:Pro, valid channel numbers are 1, 2, 3, and 4. For the
-            Moku:Go, valid channel numbers are 1 and 2.
+            Moku:Lab and Moku:Go, valid channel numbers are 1 and 2.
         impedance : str, list of str, optional
             The output impedance to use for each channel. For the
-            Moku:Pro, options are '1MOhm' and '50Ohm'. For the Moku:Go,
-            the only option is '1MOhm'. Can pass a list of the same
-            length as channels if different impedances are desired for
-            a Moku:Pro. Default is '1MOhm' for all channels.
+            Moku:Pro and Moku:Lab, options are '1MOhm' and '50Ohm'. For
+            the Moku:Go, the only option is '1MOhm'. Can pass a list of
+            the same length as channels if different impedances are
+            desired for a Moku:Pro. Default is '1MOhm' for all channels.
         coupling : str, list of str, optional
             The coupling to use for each channel. Options are 'DC' and
             'AC'. Can pass a list of the same length as channels if
@@ -104,18 +104,22 @@ class Oscilloscope(object):
         vrange : str, list of str, optional
             The voltage range to use for each channel. For the
             Moku:Pro, options are '400mVpp', '4Vpp' and '40Vpp'. For
-            the Moku:Go, options are '10Vpp' and '50Vpp'. Can pass a
-            list of the same length as channels if different voltage
-            ranges are desired for specific channels. Default is the
-            smallest allowed value for the device for all channels
-            (i.e. '400mVpp' for the Moku:Pro and '10Vpp' for the
-            Moku:Go).
+            the Moku:Lab, the options are '1Vpp' and '10Vpp'. For the
+            Moku:Go, options are '10Vpp' and '50Vpp'. Can pass a list
+            of the same length as channels if different voltage ranges
+            are desired for specific channels. Default is the smallest
+            allowed value for the device for all channels (i.e.
+            '400mVpp' for the Moku:Pro, '1Vpp' for the Moku:Lab, and
+            '10Vpp' for the Moku:Go).
 
         """
 
         if self._device == "Moku:Pro":
             chan_list = [1, 2, 3, 4]
             vrange = '400mVpp' if vrange is None else vrange
+        elif self._device == "Moku:Lab":
+            chan_list = [1, 2]
+            vrange = '1Vpp' if vrange is None else vrange
         elif self._device == "Moku:Go":
             chan_list = [1, 2]
             vrange = '10Vpp' if vrange is None else vrange
@@ -155,18 +159,19 @@ class Oscilloscope(object):
         channel : int, list of int
             The output channel to generate a waveform on. With a
             Moku:Pro, this must be an integer of 1, 2, 3 or 4. With a
-            Moku:Go, this must be an integer of 1 or 2.
+            Moku:Lab or Moku:Go, this must be an integer of 1 or 2.
         waveformtype : str, list of str, optional
             The waveform type to generate, only supports 'DC' waveforms
             at the moment. Can also be set to 'Off' to turn the channel
             off. Default is 'DC'.
         load : str, list of str, optional
             The load impedance to use for the output channel. For a
-            Moku:Pro, this must be one of '1MOhm' or '50Ohm'. For a
-            Moku:Go, this can only be '1MOhm'. Default is '1MOhm'.
+            Moku:Pro or Moku:Lab, this must be one of '1MOhm' or
+            '50Ohm'. For a Moku:Go, this can only be '1MOhm'. Default
+            is '1MOhm'.
         dc_level : float, list of float, optional
-            The dictionary containing all of the settings needed for
-            the specified waveform type. Default is 0.
+            The DC level of the output of the channel in V. Default is
+            0.
 
         """
 
@@ -180,7 +185,7 @@ class Oscilloscope(object):
             dc_level = [dc_level] * len(channels)
 
         for ind, chan in enumerate(channels):
-            if self._device == "Moku:Pro":
+            if self._device in ["Moku:Pro", "Moku:Lab"]:
                 self.Osc.set_output_load(chan, load[ind])
             self.Osc.generate_waveform(
                 channel=chan,
@@ -198,9 +203,9 @@ class Oscilloscope(object):
         sources : str, list of str
             The sources which to read out in order of increasing
             channel number. Can be some combination of "Input1",
-            "Input2", "Output1", "Output2" for the Moku:Go, with
-            "Input3", "Input4", "Output3", and "Output4" also available
-            for the Moku:Pro.
+            "Input2", "Output1", "Output2" for the Moku:Go or Moku:Lab,
+            with "Input3", "Input4", "Output3", and "Output4" also
+            available for the Moku:Pro.
         duration : float
             The total time in seconds to collect data with the current
             configuration.
@@ -224,4 +229,3 @@ class Oscilloscope(object):
         data = self.Osc.get_data()
 
         return data
-
