@@ -117,6 +117,19 @@ class EventBuilder(object):
         metadata = FR.get_metadata()
         self._fs = metadata['fs']
 
+        self._phi = None
+        self._norm = None
+        self._resolution = None
+
+        self._template = None
+        self._psd = None
+        self._nthreshold_on = None
+        self._nthreshold_off = None
+        self._tchan = None
+
+        self._threshold_on = None
+        self._threshold_off = None
+
 
     def acquire_randoms(self, nrandoms):
         """
@@ -361,17 +374,16 @@ class EventBuilder(object):
 
 
     @staticmethod
-    def _smart_trigger(trace, threshold, mergewindow):
+    def _smart_trigger(trace, threshold_on, threshold_off,
+                       mergewindow):
         """
-        Method for carrying out a "smart" triggering algorithm, where
-        the turn on threshold is specified, and the turn off threshold
-        is the smaller of the turn on threshold and 1/e times the
-        maximum OF amplitude.
+        Method for carrying out a triggering algorithm that supports
+        different turn-on and turn-off thresholds.
 
         """
 
-        turn_on = (trace > threshold)
-        turn_off_min = (trace > threshold / np.e)
+        turn_on = (trace > threshold_on)
+        turn_off = (trace > threshold_off)
 
         ind1 = 0
         ind_list = []
@@ -381,24 +393,14 @@ class EventBuilder(object):
         while searching:
 
             ind_on = np.argmax(turn_on[ind1:]) + ind1
-            ind_off_init = np.argmin(turn_on[ind_on:]) + ind_on
+            ind_off = np.argmin(turn_off[ind_on:]) + ind_on
 
-            if ind_on == ind_off_init:
+            if ind_on == ind_off:
                 searching = False # for verbosity
                 break
 
-            max_amp = np.max(trace[ind_on:ind_off_init])
-
-            ind0 = ind_on
-
-            if max_amp / np.e < threshold:
-                turn_off_end = np.argmin(turn_off_min[ind0:]) + ind0
-                turn_off = (trace[ind0:turn_off_end + 1] > max_amp / np.e)
-                ind1 = np.argmin(turn_off) + ind0
-            else:
-                ind1 = ind_off_init
-
-            ind_list.append([ind0, ind1])
+            ind_list.append([ind_on, ind_off])
+            ind1 = ind_off
 
         if len(ind_list)==0:
             return []
@@ -422,7 +424,7 @@ class EventBuilder(object):
         return ind_array
 
 
-    def acquire_pulses(self, template, psd, threshold, tchan, mergewindow=None):
+    def acquire_pulses(self, template, psd, threshold_on, tchan, threshold_off=None, mergewindow=None):
         """
         Method to carry out the offline triggering algorithm based on
         the OF formalism in time domain. Only trigeers on one specified
@@ -435,16 +437,25 @@ class EventBuilder(object):
         psd : ndarray
             The two-sided power spectral density describing the noise
             environment, to be used with the OF.
-        threshold : float
-            The trigger threshold to set, in units of number of
-            expected baseline resolution, e.g. 10 corresponds to a
-            10-sigma threshold. If positive, it is assumed that events
-            with amplitudes above this value will be extracted. If
-            negative, then events with amplitudes below this value
-            will be extracted.
+        threshold_on : float
+            The trigger activation threshold to set, in units of
+            number of expected baseline resolution, e.g. 10 corresponds
+            to a 10-sigma threshold. If positive, it is assumed that
+            events with amplitudes above this value will be extracted.
+            If negative, then events with amplitudes below this value
+            will be extracted, i.e. events will be assumed to be
+            negative going. The section of data that is marked above
+            threshold until the data goes below `threshold_off`.
         tchan : int
             The channel, designated by array index, to set a threshold
             on and extract events with amplitudes above the threshold.
+        threshold_off : float, optional
+            The trigger deactivation threshold to set, in units of
+            number of expected baseline resolution, e.g. 10 corresponds
+            to a 10-sigma threshold. If not specified, defaults to
+            `threshold_on - 2`, unless `threshold_on < 5`. In this
+            scenario, `threshold_off` is the smaller of 3 and
+            `threshold_on`.
         mergewindow : int, NoneType, optional
             Window within which to merge triggers, in units of number of
             time bins. Defaults to no merging. It is not recommended to
@@ -455,13 +466,26 @@ class EventBuilder(object):
 
         self._template = template
         self._psd = psd
-        self._nthreshold = threshold
+        self._nthreshold_on = threshold_on
+
+        posthreshold = True if self._nthreshold_on > 0 else False
+
+        if threshold_off is None:
+            sign = 1 if posthreshold else -1
+            if abs(self._nthreshold_on) > 5:
+                self._nthreshold_off = threshold_on - sign * 2
+            elif abs(self._nthreshold_on) > 3:
+                self._nthreshold_off = 3 * sign * self._resolution
+            else: self._nthreshold_off = threshold_on
+        else:
+            self._nthreshold_off = threshold_off
+
         self._tchan = tchan
 
         self._initialize_filter()
-        self._threshold = self._nthreshold * self._resolution
+        self._threshold_on = self._nthreshold_on * self._resolution
+        self._threshold_off = self._nthreshold_off * self._resolution
 
-        posthreshold = True if self._nthreshold > 0 else False
 
         savename = "trigger_" + self._start.strftime("%Y%m%d_%H%M%S")
         seriesnumber = int(self._start.strftime("%y%m%d%H%M%S"))
@@ -495,11 +519,11 @@ class EventBuilder(object):
 
                 if posthreshold:
                     ranges = EventBuilder._smart_trigger(
-                        filt, self._threshold, mergewindow,
+                        filt, self._threshold_on, self._threshold_off, mergewindow,
                     )
                 else:
                     ranges = EventBuilder._smart_trigger(
-                        -filt, -self._threshold, mergewindow,
+                        -filt, -self._threshold_on, -self._threshold_off, mergewindow,
                     )
 
                 if len(ranges)==0:
@@ -569,7 +593,9 @@ class EventBuilder(object):
                             datashape=traces[:self._maxevtsperdump].shape,
                             fs=self._fs,
                             channels=metadata['channels'],
-                            comment=f'trigger threshold: {self._nthreshold}',
+                            comment=f"""trigger:
+                            turn-on threshold: {self._nthreshold_on}sigma,
+                            turn-off threshold: {self._nthreshold_off}sigma""",
                             template=self._template,
                             psd=self._psd,
                         )
@@ -651,7 +677,9 @@ class EventBuilder(object):
                     datashape=traces[:self._maxevtsperdump].shape,
                     fs=self._fs,
                     channels=metadata['channels'],
-                    comment=f'trigger threshold: {self._nthreshold}',
+                    comment=f"""trigger:
+                    turn-on threshold: {self._nthreshold_on}sigma,
+                    turn-off threshold: {self._nthreshold_off}sigma""",
                     template=self._template,
                     psd=self._psd,
                 )
