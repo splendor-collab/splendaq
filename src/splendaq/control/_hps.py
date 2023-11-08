@@ -51,7 +51,7 @@ class HarvardPowerSupply(object):
         """
         Initialization of the HarvardPowerSupply class. Establishes
         a connection to a specified port.
-        
+
         Parameters
         ----------
         port : str
