@@ -2,6 +2,7 @@ import time
 import os
 import numpy as np
 
+from moku.exceptions import StreamException
 from moku.instruments import Datalogger
 
 
@@ -23,7 +24,6 @@ class LogData(object):
     """
 
     def __init__(self, ip_address, force_connect=False, fs=None,
-                 max_duration_per_file=60,
                  acquisition_mode="Precision"):
         """
         Initialization of the LogData class.
@@ -49,10 +49,6 @@ class LogData(object):
             lowest allowed maximum value for the given device (i.e.
             1.25e6 for Moku:Pro, 2.5e5 for Moku:Lab, and 500e3 for
             Moku:Go).
-        max_duration_per_file : float, optional
-            The maximum amount of seconds to save to a single file.
-            Avoids creating very large single files. Default is 60
-            seconds.
         acquisition_mode : str, optional
             Changes acquisition mode between 'Normal' and 'Precision'.
             Precision mode is also known as decimation, it samples at
@@ -65,9 +61,8 @@ class LogData(object):
         self.DL = Datalogger(
             ip_address, force_connect=force_connect, session_trust_env=False,
         )
-        self.DL.set_acquisition_mode(acquisition_mode)
-        self._max_dur_per_file = max_duration_per_file
 
+        self.DL.set_acquisition_mode(acquisition_mode)
         self._device = self.DL.describe()['hardware']
         if self._device not in ['Moku:Pro', 'Moku:Lab', 'Moku:Go']:
             raise ValueError(
@@ -442,16 +437,15 @@ class LogData(object):
             **settings,
         )
 
-
     def log_data(self, duration, savepath='./', comments='',
-                 file_name_prefix=''):
+                 max_duration_per_file=60, file_name_prefix=''):
         """
         Method to log data after setting up the desired configuration.
         Saves a LI file to the specified save path.
 
         Parameters
         ----------
-        duration : integer
+        duration : int
             The total number of seconds to log data with the current
             configuration. Must be an integer.
         savepath : str, optional
@@ -464,19 +458,23 @@ class LogData(object):
         file_name_prefix : str, optional
             Prefix to use in the filename. Default is set by the Moku
             as "MokuDataLoggerData".
+        max_duration_per_file : float, optional
+            The maximum amount of seconds to save to a single file.
+            Avoids creating very large single files. Default is 60
+            seconds.
 
         """
 
         self.DL.set_samplerate(self._fs)
 
         filenames = []
-        nfiles = np.int32(np.ceil(duration / self._max_dur_per_file))
+        nfiles = np.int32(np.ceil(duration / max_duration_per_file))
 
         for ii in range(nfiles):
-            if (ii + 1) * self._max_dur_per_file > duration:
-                this_file_duration = duration % self._max_dur_per_file
+            if (ii + 1) * max_duration_per_file > duration:
+                this_file_duration = duration % max_duration_per_file
             else:
-                this_file_duration = self._max_dur_per_file
+                this_file_duration = max_duration_per_file
 
             logfile = self.DL.start_logging(
                 duration=this_file_duration,
@@ -511,3 +509,37 @@ class LogData(object):
                 fname,
                 os.path.abspath(savepath + os.sep + fname),
             )
+
+    def stream_data(self, duration, get_chunk=False):
+        """
+        Method to stream data to ndarrays after setting up the desired
+        configuration.
+
+        Parameters
+        ----------
+        duration : int
+            The total number of seconds to log data with the current
+            configuration. Must be an integer.
+
+        Returns
+        -------
+        data : dict
+            The saved data as a dictionary of ndarrays
+
+        """
+
+        self.DL.set_samplerate(self._fs)
+        self.DL.start_streaming(duration)
+
+        if get_chunk:
+            data = self.DL.get_stream_data()
+            return data
+
+        data_list = []
+        try:
+            while True:
+                data_list.append(self.DL.get_stream_data())
+        except StreamException:
+            pass
+
+        return data_list
