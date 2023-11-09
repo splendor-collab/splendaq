@@ -1,5 +1,6 @@
 import numpy as np
 import serial
+import time
 
 
 __all__ = [
@@ -7,14 +8,24 @@ __all__ = [
 ]
 
 
+def wait(secs):
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            ret = func(*args, **kwargs)
+            time.sleep(secs)
+            return ret
+        return wrapper
+    return decorator
+
+
 class SR560(object):
     """
     Class for controlling an SRS SR560 low-noise preamplifier.
     Documentation on the various commands can be found in the SR560
     user manual.
-    
+
     """
-    
+
     def __init__(self, port):
         """
         Initialization of the SS560 class. Establishes a connection to
@@ -36,6 +47,7 @@ class SR560(object):
         self._SRS.port = port
         self._SRS.open()
 
+    @wait(1)
     def set_coupling(self, value):
         """
         Set the coupling of the SR560.
@@ -54,6 +66,7 @@ class SR560(object):
 
         self._SRS.write(f"CPLG{value}\r\n".encode())
 
+    @wait(1)
     def set_dynamic_reserve(self, value):
         """
         Set the dynamic reserve of the SR560.
@@ -72,6 +85,7 @@ class SR560(object):
 
         self._SRS.write(f"DYNR{value}\r\n".encode())
 
+    @wait(1)
     def set_blanking(self, value):
         """
         Operates amplifier blanking.
@@ -89,6 +103,7 @@ class SR560(object):
 
         self._SRS.write(f"BLINK{value}\r\n".encode())
 
+    @wait(1)
     def set_filter_mode(self, value):
         """
         Sets filter mode.
@@ -111,7 +126,8 @@ class SR560(object):
         """
 
         self._SRS.write(f"FLTM{value}\r\n".encode())
-        
+
+    @wait(1)
     def set_gain(self, gain):
         """
         Controls the gain of the SR560.
@@ -154,6 +170,7 @@ class SR560(object):
         value = gain_dict[gain]
         self._SRS.write(f"GAIN{value}\r\n".encode())
 
+    @wait(1)
     def set_highpass_filter(self, freq):
         """
         Set the highpass filter frequency.
@@ -194,6 +211,7 @@ class SR560(object):
         value = freq_dict[freq]
         self._SRS.write(f"HFRQ{value}\r\n".encode())
 
+    @wait(1)
     def set_signal_invert(self, value):
         """
         Sets the signal invert status.
@@ -211,6 +229,7 @@ class SR560(object):
 
         self._SRS.write(f"INVT{value}\r\n".encode())
 
+    @wait(1)
     def listen_all(self):
         """
         Makes all attached SR560s listeners.
@@ -223,6 +242,7 @@ class SR560(object):
 
         self._SRS.write(b"LALL\r\n")
 
+    @wait(1)
     def listen(self, value):
         """
         Listen to a specific SR560.
@@ -241,6 +261,7 @@ class SR560(object):
 
         self._SRS.write(f"LISN{value}\r\n".encode())
 
+    @wait(1)
     def set_lowpass_filter(self, freq):
         """
         Set the lowpass filter frequency.
@@ -285,6 +306,7 @@ class SR560(object):
         value = freq_dict[freq]
         self._SRS.write(f"LFRQ{freq}\r\n".encode())
 
+    @wait(1)
     def reset_overload(self):
         """
         Resets overload for 0.5 seconds.
@@ -297,6 +319,7 @@ class SR560(object):
 
         self._SRS.write(b"ROLD\r\n")
 
+    @wait(1)
     def set_input_source(self, value):
         """
         Sets the input source.
@@ -315,6 +338,7 @@ class SR560(object):
 
         self._SRS.write(f"SRCE{value}\r\n".encode())
 
+    @wait(1)
     def set_vernier_gain_status(self, value):
         """
         Set the vernier gain status.
@@ -332,6 +356,7 @@ class SR560(object):
 
         self._SRS.write(f"UCAL{value}\r\n".encode())
 
+    @wait(1)
     def set_vernier_gain(self, gain):
         """
         Set the vernier gain on the SR560.
@@ -356,6 +381,7 @@ class SR560(object):
 
         self._SRS.write(f"UCGN{gain}\r\n".encode())
 
+    @wait(1)
     def unlisten_all(self):
         """
         Unlisten. Unaddresses all attached SR560s.
@@ -368,6 +394,7 @@ class SR560(object):
 
         self._SRS.write(b"UNLS\r\n")
 
+    @wait(1)
     def reset_to_defaults(self):
         """
         Reset. Recalls default settings.
