@@ -7,12 +7,18 @@ Package for general data acquisition with a focus on the Moku device by [Liquid 
 
 If you use this package for your research, please cite our paper as below:
 ```
-@misc{watkins2023splendaq,
-      title={SPLENDAQ: A Detector-Agnostic Data Acquisition System for Small-Scale Physics Experiments}, 
-      author={S. L. Watkins},
-      year={2023},
-      eprint={2310.01279},
-      archivePrefix={arXiv},
-      primaryClass={physics.ins-det}
+@article{Watkins:2023rgt,
+    author = "Watkins, Samuel L.",
+    title = "{SPLENDAQ: A Detector-Agnostic Data Acquisition System for Small-Scale Physics Experiments}",
+    eprint = "2310.01279",
+    archivePrefix = "arXiv",
+    primaryClass = "physics.ins-det",
+    reportNumber = "LA-UR-23-31174",
+    doi = "10.1007/s10909-023-03021-w",
+    journal = "J. Low Temp. Phys.",
+    volume = "214",
+    number = "3-4",
+    pages = "133--142",
+    year = "2024"
 }
 ```
