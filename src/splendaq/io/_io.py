@@ -1,6 +1,7 @@
 import subprocess
 import os
 import sys
+import copy
 from pathlib import Path
 from datetime import datetime
 import numpy as np
@@ -157,15 +158,24 @@ class Writer(object):
 
         """
 
+        current_metadata_size = 0
+
         if filename is not None:
             self.filename = filename
         elif self.filename is None:
             raise ValueError("No filename specified.")
 
         with h5py.File(self.filename, mode='w') as hf:
-            hf.create_dataset('data', data=data, compression='gzip')
+            hf.create_dataset(
+                'data',
+                data=data,
+                compression='gzip',
+                track_order=True,
+            )
             for key in metadata:
-                if sys.getsizeof(metadata[key]) < 64000:
+                size_of_key = sys.getsizeof(copy.deepcopy(metadata[key]))
+                if current_metadata_size + size_of_key < 64000:
+                    current_metadata_size += size_of_key
                     hf.attrs[key] = metadata[key]
                 else:
                     hf.create_dataset(
