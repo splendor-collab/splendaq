@@ -163,7 +163,7 @@ class LogData(object):
         disable_chans = [chan not in channels for chan in chan_list]
         for chan, disable in zip(chan_list, disable_chans):
             if not disable:
-                self.DL.enable_channel(chan)
+                self.DL.enable_input(chan)
                 ind = channels.index(chan)
                 self.DL.set_frontend(
                     channel=chan,
