@@ -102,7 +102,6 @@ class LogData(object):
 
         for chan in chan_list:
             self.DL.generate_waveform(chan, 'Off') # disable outputs
-            self.DL.disable_channel(chan) # disable inputs
 
         self.DL.relinquish_ownership()
 
@@ -163,9 +162,8 @@ class LogData(object):
 
         disable_chans = [chan not in channels for chan in chan_list]
         for chan, disable in zip(chan_list, disable_chans):
-            if disable:
-                self.DL.disable_channel(chan)
-            else:
+            if not disable:
+                self.DL.enable_channel(chan)
                 ind = channels.index(chan)
                 self.DL.set_frontend(
                     channel=chan,
