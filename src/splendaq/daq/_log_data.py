@@ -101,8 +101,8 @@ class LogData(object):
             chan_list = [1, 2]
 
         for chan in chan_list:
+            self.DL.enable_input(chan, False) # disable inputs
             self.DL.generate_waveform(chan, 'Off') # disable outputs
-            self.DL.disable_channel(chan) # disable inputs
 
         self.DL.relinquish_ownership()
 
@@ -164,7 +164,7 @@ class LogData(object):
         disable_chans = [chan not in channels for chan in chan_list]
         for chan, disable in zip(chan_list, disable_chans):
             if disable:
-                self.DL.disable_channel(chan)
+                self.DL.enable_input(chan, False)
             else:
                 ind = channels.index(chan)
                 self.DL.set_frontend(
@@ -405,7 +405,7 @@ class LogData(object):
             'dc_level': dc_level,
         }
 
-    def set_output_channel(self, channel, waveformtype, load="1MOhm",
+    def set_output_channel(self, channel, waveformtype, load="HiZ",
                            **settings):
         """
         Method to turn on an output channel and generate the speicified
@@ -423,11 +423,11 @@ class LogData(object):
             The waveform type to generate, must be one of 'Sine',
             'Square', 'Ramp', 'Pulse', 'DC'. Can also be set to 'Off'
             to turn the channel off.
-        load : str, optional
-            The load impedance to use for the output channel. For a
-            Moku:Pro or Moku:Lab, this must be one of '1MOhm' or
-            '50Ohm'. For a Moku:Go, this can only be '1MOhm'. Default
-            is '1MOhm'.
+        termination : str, optional
+            The waveform termination to use for the output channel.
+            For a Moku:Pro or Moku:Lab, this must be one of 'HiZ' or
+            '50Ohm'. For a Moku:Go, this can only be 'HiZ'. Default
+            is 'HiZ'.
         settings : dict
             The dictionary containing all of the settings needed for
             the specified waveform type.
@@ -435,7 +435,7 @@ class LogData(object):
         """
 
         if self._device in ["Moku:Pro", "Moku:Lab"]:
-            self.DL.set_output_load(channel, load)
+            self.DL.set_output_termination(channel, load)
         self.DL.generate_waveform(
             channel,
             waveformtype,
@@ -489,12 +489,9 @@ class LogData(object):
                 # Wait for the logging session to progress by sleeping 0.5sec
                 time.sleep(0.5)
                 # Get current progress percentage and check if it's complete
-                try:
-                    progress = self.DL.logging_progress()
-                    remaining_time = progress['time_remaining']
-                    is_logging = remaining_time >= 0
-                except:
-                    is_logging = False
+                progress = self.DL.logging_progress()
+                remaining_time = progress['time_remaining']
+                is_logging = remaining_time > 0
 
             filenames.append(logfile['file_name'])
 
