@@ -490,8 +490,7 @@ class LogData(object):
                 time.sleep(0.5)
                 # Get current progress percentage and check if it's complete
                 progress = self.DL.logging_progress()
-                remaining_time = progress['time_remaining']
-                is_logging = remaining_time > 0
+                is_logging = progress['complete']
 
             filenames.append(logfile['file_name'])
 
