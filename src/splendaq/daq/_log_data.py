@@ -405,7 +405,7 @@ class LogData(object):
             'dc_level': dc_level,
         }
 
-    def set_output_channel(self, channel, waveformtype, load="HiZ",
+    def set_output_channel(self, channel, waveformtype, termination="HiZ",
                            **settings):
         """
         Method to turn on an output channel and generate the speicified
@@ -435,7 +435,7 @@ class LogData(object):
         """
 
         if self._device in ["Moku:Pro", "Moku:Lab"]:
-            self.DL.set_output_termination(channel, load)
+            self.DL.set_output_termination(channel, termination)
         self.DL.generate_waveform(
             channel,
             waveformtype,
