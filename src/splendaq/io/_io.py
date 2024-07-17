@@ -235,6 +235,7 @@ def convert_li_to_h5(li_file, my_os):
     """
     Converting a LI file to a splendaq HDF5 file.
 
+
     Parameters
     ----------
     li_file : str
@@ -247,9 +248,16 @@ def convert_li_to_h5(li_file, my_os):
     """
 
     convert_li(li_file, my_os, filetype='mat')
-    mat_filename = Path(li_file).with_suffix('.mat')
-    mat_file = loadmat(mat_filename, simplify_cells=True)['moku']
-    os.remove(mat_filename)
+    mat_filenames = sorted(
+        Path('.').glob(f"{Path(li_file).with_suffix('')}*.mat")
+    )
+    mat_files = []
+    for ff in mat_filenames:
+        mat_files.append(loadmat(ff, simplify_cells=True)['moku'])
+        os.remove(ff)
+
+    # get metadata from the first file
+    mat_file = mat_files[0]
 
     comment_str = mat_file['comment']
     comment = list(
@@ -270,7 +278,7 @@ def convert_li_to_h5(li_file, my_os):
         s for s in comment if kw_fs in s
     ][0][len(kw_fs):].split('Hz')[0])
 
-    arr = mat_file['data']
+    arr = np.vstack([m['data'] for m in mat_files])
     columns = mat_file['legend']
 
     new_filename = Path(li_file).with_suffix('.h5')
@@ -293,4 +301,3 @@ def convert_li_to_h5(li_file, my_os):
         parentseriesnumber=[seriesnumber] * datashape[0],
         parenteventnumber=np.arange(datashape[0]),
     )
-
