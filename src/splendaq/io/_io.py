@@ -235,7 +235,6 @@ def convert_li_to_h5(li_file, my_os):
     """
     Converting a LI file to a splendaq HDF5 file.
 
-
     Parameters
     ----------
     li_file : str
