@@ -248,7 +248,7 @@ def convert_li_to_h5(li_file, my_os):
 
     convert_li(li_file, my_os, filetype='mat')
     mat_filenames = sorted(
-        Path('.').glob(f"{Path(li_file).with_suffix('')}*.mat")
+        Path(li_file).parent.glob(f"{Path(li_file).stem}*.mat")
     )
     mat_files = []
     for ff in mat_filenames:
