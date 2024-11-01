@@ -475,8 +475,9 @@ class EventBuilder(object):
             if abs(self._nthreshold_on) > 5:
                 self._nthreshold_off = threshold_on - sign * 2
             elif abs(self._nthreshold_on) > 3:
-                self._nthreshold_off = 3 * sign * self._resolution
-            else: self._nthreshold_off = threshold_on
+                self._nthreshold_off = 3 * sign
+            else: 
+                self._nthreshold_off = threshold_on
         else:
             self._nthreshold_off = threshold_off
 
