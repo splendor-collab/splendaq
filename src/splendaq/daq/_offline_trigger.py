@@ -518,20 +518,18 @@ class EventBuilder(object):
 
             for kk, filt in enumerate(filtered):
 
-                if posthreshold:
-                    ranges = EventBuilder._smart_trigger(
-                        filt, self._threshold_on, self._threshold_off, mergewindow,
-                    )
-                else:
-                    ranges = EventBuilder._smart_trigger(
-                        -filt, -self._threshold_on, -self._threshold_off, mergewindow,
-                    )
+                ranges = EventBuilder._smart_trigger(
+                    sign * filt,
+                    sign * self._threshold_on,
+                    sign * self._threshold_off,
+                    mergewindow,
+                )
 
                 if len(ranges)==0:
                     break
 
                 for ind0, ind1 in zip(ranges[:, 0], ranges[:, 1]):
-                    indmax = ind0 + np.argmax(filt[ind0:ind1])
+                    indmax = ind0 + np.argmax(sign * filt[ind0:ind1])
                     evtinds_list.append([indmax - self._tracelength//2])
                     triginds_list.append([indmax])
                     evtamps_list.append([filt[indmax]])
