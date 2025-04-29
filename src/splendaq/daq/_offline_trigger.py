@@ -7,12 +7,14 @@ import os
 from datetime import datetime
 from scipy.signal import correlate
 import warnings
+from tqdm import tqdm
 
 from splendaq.io import Reader, Writer
 
 
 __all__ = [
     'EventBuilder',
+    'rand_sections',
 ]
 
 
@@ -131,7 +133,7 @@ class EventBuilder(object):
         self._threshold_off = None
 
 
-    def acquire_randoms(self, nrandoms):
+    def acquire_randoms(self, nrandoms, verbose=False):
         """
         Method for acquiring randomly triggered events and
         saving them to the specified file location.
@@ -141,6 +143,9 @@ class EventBuilder(object):
         nrandoms : int
             The number of randoms to acquire from the continuous
             data.
+        verbose : bool
+            If True, a progress bar will be shown via `tqdm` to
+            give an estimate of time remaining. Default is False.
 
         """
 
@@ -191,7 +196,7 @@ class EventBuilder(object):
         dumpnum = 1
         basenevents = 0
 
-        for key in sorted(counts.keys()):
+        for key in tqdm(sorted(counts.keys()), disable=not verbose):
 
             FR = Reader(filelist[key])
             data, metadata = FR.get_data(include_metadata=True)
@@ -428,7 +433,8 @@ class EventBuilder(object):
 
 
 
-    def acquire_pulses(self, template, psd, threshold_on, tchan, threshold_off=None, mergewindow=0):
+    def acquire_pulses(self, template, psd, threshold_on, tchan,
+                       threshold_off=None, mergewindow=0, verbose=False):
         """
         Method to carry out the offline triggering algorithm based on
         the OF formalism in time domain. Only trigeers on one specified
@@ -438,9 +444,13 @@ class EventBuilder(object):
         ----------
         template : ndarray, list of ndarrays
             The amplitude-normalized signal template in time domain.
+            If multiple channels are to be triggered on, should be a
+            list of templates with the same length as `tchan`.
         psd : ndarray, list of ndarrays
             The two-sided power spectral density describing the noise
-            environment, to be used with the OF.
+            environment, to be used with the OF. If multiple channels
+            are to be triggered on, should be a list of psds with the
+            same length as `tchan`.
         threshold_on : float, list of floats
             The trigger activation threshold to set, in units of
             number of expected baseline resolution, e.g. 10 corresponds
@@ -449,22 +459,33 @@ class EventBuilder(object):
             If negative, then events with amplitudes below this value
             will be extracted, i.e. events will be assumed to be
             negative going. The section of data that is marked above
-            threshold until the data goes below `threshold_off`.
+            threshold until the data goes below `threshold_off`. If
+            multiple channels are to be triggered on, should be a
+            list of thresholds with the same length as `tchan`.
         tchan : int, list of ints
             The channel, designated by array index, to set a threshold
             on and extract events with amplitudes above the threshold.
+            If multiple channels are to be triggered on, should be a
+            list of which indices in the array will be used.
         threshold_off : float, list of floats, optional
             The trigger deactivation threshold to set, in units of
             number of expected baseline resolution, e.g. 10 corresponds
             to a 10-sigma threshold. If not specified, defaults to
             `threshold_on - 2`, unless `threshold_on < 5`. In this
             scenario, `threshold_off` is the smaller of 3 and
-            `threshold_on`.
+            `threshold_on`. If multiple channels are to be triggered
+            on, should be a list of thresholds.
         mergewindow : int, optional
             Window within which to merge triggers, in units of number of
             time bins. Defaults to no merging. It is not recommended to
             set this to above half of a trace length, as substantial
-            dead time may be accrued.
+            dead time may be accrued. If multiple channels are to be
+            triggered on, this also marks events within this window
+            as coincident and the centers the saved trace on the channel
+            with the largest amplitude.
+        verbose : bool
+            If True, a progress bar will be shown via `tqdm` to
+            give an estimate of time remaining. Default is False.
         
         """
 
@@ -512,7 +533,7 @@ class EventBuilder(object):
         basenevents = 0
 
 
-        for filename in filelist:
+        for filename in tqdm(filelist, disable=not verbose):
 
             FR = Reader(filename)
             data, metadata = FR.get_data(include_metadata=True)
@@ -544,7 +565,7 @@ class EventBuilder(object):
                     )
                     evtinds_list.append([indmax - self._tracelength//2])
                     triginds_list.append([indmax])
-                    evtamps_list.append([filt[max_chan, indmax]])
+                    evtamps_list.append([filt[:, indmax]])
                     trace_save_start = indmax - self._tracelength//2
                     trace_save_end = indmax + self._tracelength//2
                     traces_list.append(
@@ -561,7 +582,7 @@ class EventBuilder(object):
 
                     evtinds = np.concatenate(evtinds_list)
                     triginds = np.concatenate(triginds_list)
-                    evtamps = np.concatenate(evtamps_list)
+                    evtamps = np.concatenate(evtamps_list) if len(self._tchan)==1 else np.vstack(evtamps_list)
                     traces = np.concatenate(traces_list)
                     parentsns = np.concatenate(parentsn_list)
                     parentens = np.concatenate(parenten_list)
@@ -598,7 +619,7 @@ class EventBuilder(object):
                                 triginds[:self._maxevtsperdump] / self._fs
                             ),
                             triggertype=np.ones(nevents, dtype=int),
-                            triggeramp=evtamps[:self._maxevtsperdump],
+                            triggeramp=evtamps[..., :self._maxevtsperdump],
                             parentseriesnumber=parentsns[:self._maxevtsperdump],
                             parenteventnumber=parentens[:self._maxevtsperdump],
                             datashape=traces[:self._maxevtsperdump].shape,
@@ -615,7 +636,7 @@ class EventBuilder(object):
 
                         evtinds = evtinds[self._maxevtsperdump:]
                         triginds = triginds[self._maxevtsperdump:]
-                        evtamps = evtamps[self._maxevtsperdump:]
+                        evtamps = evtamps[..., self._maxevtsperdump:]
                         traces = traces[self._maxevtsperdump:]
                         parentsns = parentsns[self._maxevtsperdump:]
                         parentens = parentens[self._maxevtsperdump:]
@@ -645,7 +666,7 @@ class EventBuilder(object):
 
             evtinds = np.concatenate(evtinds_list)
             triginds = np.concatenate(triginds_list)
-            evtamps = np.concatenate(evtamps_list)
+            evtamps = np.concatenate(evtamps_list) if len(self._tchan)==1 else np.vstack(evtamps_list)
             traces = np.concatenate(traces_list)
             parentsns = np.concatenate(parentsn_list)
             parentens = np.concatenate(parenten_list)
@@ -682,7 +703,7 @@ class EventBuilder(object):
                         triginds[:self._maxevtsperdump] / self._fs
                     ),
                     triggertype=np.ones(nevents, dtype=int),
-                    triggeramp=evtamps[:self._maxevtsperdump],
+                    triggeramp=evtamps[..., :self._maxevtsperdump],
                     parentseriesnumber=parentsns[:self._maxevtsperdump],
                     parenteventnumber=parentens[:self._maxevtsperdump],
                     datashape=traces[:self._maxevtsperdump].shape,
@@ -700,7 +721,7 @@ class EventBuilder(object):
                 if ii + 1 != np.ceil(dumps_left).astype(int):
                     evtinds = evtinds[self._maxevtsperdump:]
                     triginds = triginds[self._maxevtsperdump:]
-                    evtamps = evtamps[self._maxevtsperdump:]
+                    evtamps = evtamps[..., self._maxevtsperdump:]
                     traces = traces[self._maxevtsperdump:]
                     parentsns = parentsns[self._maxevtsperdump:]
                     parentens = parentens[self._maxevtsperdump:]
