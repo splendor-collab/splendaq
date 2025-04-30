@@ -558,7 +558,10 @@ class EventBuilder(object):
 
                 for ind0, ind1 in zip(ranges[:, 0], ranges[:, 1]):
                     max_chan = np.argmax(
-                        np.max(filt[:, ind0:ind1], axis=1)
+                        np.max(
+                            filt[:, ind0:ind1] / np.asarray(self._resolutions)[:, np.newaxis],
+                            axis=1,
+                        )
                     )
                     indmax = ind0 + np.argmax(
                         sign[max_chan] * filt[max_chan, ind0:ind1]
@@ -582,7 +585,7 @@ class EventBuilder(object):
 
                     evtinds = np.concatenate(evtinds_list)
                     triginds = np.concatenate(triginds_list)
-                    evtamps = np.concatenate(evtamps_list) if len(self._tchan)==1 else np.vstack(evtamps_list)
+                    evtamps = np.concatenate(evtamps_list)
                     traces = np.concatenate(traces_list)
                     parentsns = np.concatenate(parentsn_list)
                     parentens = np.concatenate(parenten_list)
@@ -619,7 +622,7 @@ class EventBuilder(object):
                                 triginds[:self._maxevtsperdump] / self._fs
                             ),
                             triggertype=np.ones(nevents, dtype=int),
-                            triggeramp=evtamps[..., :self._maxevtsperdump],
+                            triggeramp=evtamps[:self._maxevtsperdump],
                             parentseriesnumber=parentsns[:self._maxevtsperdump],
                             parenteventnumber=parentens[:self._maxevtsperdump],
                             datashape=traces[:self._maxevtsperdump].shape,
@@ -636,7 +639,7 @@ class EventBuilder(object):
 
                         evtinds = evtinds[self._maxevtsperdump:]
                         triginds = triginds[self._maxevtsperdump:]
-                        evtamps = evtamps[..., self._maxevtsperdump:]
+                        evtamps = evtamps[self._maxevtsperdump:]
                         traces = traces[self._maxevtsperdump:]
                         parentsns = parentsns[self._maxevtsperdump:]
                         parentens = parentens[self._maxevtsperdump:]
@@ -666,7 +669,7 @@ class EventBuilder(object):
 
             evtinds = np.concatenate(evtinds_list)
             triginds = np.concatenate(triginds_list)
-            evtamps = np.concatenate(evtamps_list) if len(self._tchan)==1 else np.vstack(evtamps_list)
+            evtamps = np.concatenate(evtamps_list)
             traces = np.concatenate(traces_list)
             parentsns = np.concatenate(parentsn_list)
             parentens = np.concatenate(parenten_list)
@@ -703,7 +706,7 @@ class EventBuilder(object):
                         triginds[:self._maxevtsperdump] / self._fs
                     ),
                     triggertype=np.ones(nevents, dtype=int),
-                    triggeramp=evtamps[..., :self._maxevtsperdump],
+                    triggeramp=evtamps[:self._maxevtsperdump],
                     parentseriesnumber=parentsns[:self._maxevtsperdump],
                     parenteventnumber=parentens[:self._maxevtsperdump],
                     datashape=traces[:self._maxevtsperdump].shape,
@@ -721,7 +724,7 @@ class EventBuilder(object):
                 if ii + 1 != np.ceil(dumps_left).astype(int):
                     evtinds = evtinds[self._maxevtsperdump:]
                     triginds = triginds[self._maxevtsperdump:]
-                    evtamps = evtamps[..., self._maxevtsperdump:]
+                    evtamps = evtamps[self._maxevtsperdump:]
                     traces = traces[self._maxevtsperdump:]
                     parentsns = parentsns[self._maxevtsperdump:]
                     parentens = parentens[self._maxevtsperdump:]
