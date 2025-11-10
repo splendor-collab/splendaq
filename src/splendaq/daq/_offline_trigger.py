@@ -7,12 +7,14 @@ import os
 from datetime import datetime
 from scipy.signal import correlate
 import warnings
+from tqdm import tqdm
 
 from splendaq.io import Reader, Writer
 
 
 __all__ = [
     'EventBuilder',
+    'rand_sections',
 ]
 
 
@@ -131,7 +133,7 @@ class EventBuilder(object):
         self._threshold_off = None
 
 
-    def acquire_randoms(self, nrandoms):
+    def acquire_randoms(self, nrandoms, verbose=False):
         """
         Method for acquiring randomly triggered events and
         saving them to the specified file location.
@@ -141,6 +143,9 @@ class EventBuilder(object):
         nrandoms : int
             The number of randoms to acquire from the continuous
             data.
+        verbose : bool
+            If True, a progress bar will be shown via `tqdm` to
+            give an estimate of time remaining. Default is False.
 
         """
 
@@ -191,7 +196,7 @@ class EventBuilder(object):
         dumpnum = 1
         basenevents = 0
 
-        for key in sorted(counts.keys()):
+        for key in tqdm(sorted(counts.keys()), disable=not verbose):
 
             FR = Reader(filelist[key])
             data, metadata = FR.get_data(include_metadata=True)
@@ -336,14 +341,15 @@ class EventBuilder(object):
         """
 
         # calculate the time-domain optimum filter
-        phi_freq = np.fft.fft(self._template)/self._psd
-        phi_freq[0] = 0 # ensure we do not use DC information
-        self._phi = np.fft.ifft(phi_freq).real
+        phi_freq = [np.fft.fft(template) / psd for template, psd in zip(self._template, self._psd)]
+        for phi in phi_freq:
+            phi[..., 0] = 0 # ensure we do not use DC information
+        self._phi = [np.fft.ifft(pf).real for pf in phi_freq]
         # calculate the normalization of the optimum filter
-        self._norm = np.dot(self._phi, self._template)
+        self._norm =[np.dot(phi, template) for template, phi in zip(self._template, self._phi)]
         
         # calculate the expected energy resolution
-        self._resolution = 1 / (self._norm / self._fs)**0.5
+        self._resolution = [1 / (norm / self._fs)**0.5 for norm in self._norm]
 
 
     def _filter_traces(self, traces):
@@ -357,24 +363,28 @@ class EventBuilder(object):
 
         # apply the FIR filter to each trace
         filts = np.array(
-            [correlate(
-                trace, self._phi, mode="same",
-            ) / self._norm for trace in alltraces]
+            [
+                np.array([correlate(
+                    trace_chan, phi, mode="same",
+                ) / norm for trace_chan, phi, norm in zip(
+                    trace, self._phi, self._norm
+                )]) for trace in alltraces
+            ]
         )
 
         # set the filtered values to zero near the edges, so as not
         # to use the padded values in the analysis also so that the
         # traces that will be saved will be equal to the tracelength
-        cut_len = np.max([len(self._phi), self._tracelength])
+        cut_len = np.max([len(self._phi[0]), self._tracelength])
 
-        filts[:, :cut_len//2] = 0
-        filts[:, -(cut_len//2) + (cut_len + 1) % 2:] = 0
+        filts[..., :cut_len//2] = 0
+        filts[..., -(cut_len//2) + (cut_len + 1) % 2:] = 0
 
         return filts
 
 
     @staticmethod
-    def _smart_trigger(trace, threshold_on, threshold_off,
+    def _smart_trigger(trace, sign, threshold_on, threshold_off,
                        mergewindow):
         """
         Method for carrying out a triggering algorithm that supports
@@ -382,49 +392,49 @@ class EventBuilder(object):
 
         """
 
-        turn_on = (trace > threshold_on)
-        turn_off = (trace > threshold_off)
+        turn_on_arr = [ss * tt > ss * t_on for tt, ss, t_on in zip(trace, sign, threshold_on)]
+        turn_off_arr = [ss * tt > ss * t_off for tt, ss, t_off in zip(trace, sign, threshold_off)]
 
-        ind1 = 0
         ind_list = []
 
-        searching = True
-
-        while searching:
-
-            ind_on = np.argmax(turn_on[ind1:]) + ind1
-            ind_off = np.argmin(turn_off[ind_on:]) + ind_on
-
-            if ind_on == ind_off:
-                searching = False # for verbosity
-                break
-
-            ind_list.append([ind_on, ind_off])
-            ind1 = ind_off
+        for turn_on, turn_off in zip(turn_on_arr, turn_off_arr):
+            ind1 = 0
+            searching = True
+    
+            while searching:
+    
+                ind_on = np.argmax(turn_on[ind1:]) + ind1
+                ind_off = np.argmin(turn_off[ind_on:]) + ind_on
+    
+                if ind_on == ind_off:
+                    searching = False # for verbosity
+                    break
+    
+                ind_list.append([ind_on, ind_off])
+                ind1 = ind_off
 
         if len(ind_list)==0:
             return []
 
-        ind_array = np.vstack(ind_list)
+        ind_array = np.sort(np.vstack(ind_list), axis=0)
 
-        if mergewindow is not None:
-            ind_array_flat = ind_array.flatten()
-            arr = (ind_array_flat[1:] - ind_array_flat[:-1])[1::2] < mergewindow
+        ind_array_flat = ind_array.flatten()
+        arr = (ind_array_flat[1:] - ind_array_flat[:-1])[1::2] < mergewindow
 
-            inds_keep = [0]
-            for ii, b in enumerate(arr):
-                if ~b:
-                    inds_keep.extend([2 * ii + 1, 2 * ii + 2])
-            inds_keep.append(-1)
+        inds_keep = [0]
+        for ii, b in enumerate(arr):
+            if ~b:
+                inds_keep.extend([2 * ii + 1, 2 * ii + 2])
+        inds_keep.append(-1)
 
-            ind_array_out = ind_array_flat[inds_keep].reshape(len(inds_keep)//2, 2)
+        ind_array_out = ind_array_flat[inds_keep].reshape(len(inds_keep)//2, 2)
 
-            return ind_array_out
-
-        return ind_array
+        return ind_array_out
 
 
-    def acquire_pulses(self, template, psd, threshold_on, tchan, threshold_off=None, mergewindow=None):
+
+    def acquire_pulses(self, template, psd, threshold_on, tchan,
+                       threshold_off=None, mergewindow=0, verbose=False):
         """
         Method to carry out the offline triggering algorithm based on
         the OF formalism in time domain. Only trigeers on one specified
@@ -432,12 +442,16 @@ class EventBuilder(object):
 
         Parameters
         ----------
-        template : ndarray
+        template : ndarray, list of ndarrays
             The amplitude-normalized signal template in time domain.
-        psd : ndarray
+            If multiple channels are to be triggered on, should be a
+            list of templates with the same length as `tchan`.
+        psd : ndarray, list of ndarrays
             The two-sided power spectral density describing the noise
-            environment, to be used with the OF.
-        threshold_on : float
+            environment, to be used with the OF. If multiple channels
+            are to be triggered on, should be a list of psds with the
+            same length as `tchan`.
+        threshold_on : float, list of floats
             The trigger activation threshold to set, in units of
             number of expected baseline resolution, e.g. 10 corresponds
             to a 10-sigma threshold. If positive, it is assumed that
@@ -445,47 +459,60 @@ class EventBuilder(object):
             If negative, then events with amplitudes below this value
             will be extracted, i.e. events will be assumed to be
             negative going. The section of data that is marked above
-            threshold until the data goes below `threshold_off`.
-        tchan : int
+            threshold until the data goes below `threshold_off`. If
+            multiple channels are to be triggered on, should be a
+            list of thresholds with the same length as `tchan`.
+        tchan : int, list of ints
             The channel, designated by array index, to set a threshold
             on and extract events with amplitudes above the threshold.
-        threshold_off : float, optional
+            If multiple channels are to be triggered on, should be a
+            list of which indices in the array will be used.
+        threshold_off : float, list of floats, optional
             The trigger deactivation threshold to set, in units of
             number of expected baseline resolution, e.g. 10 corresponds
             to a 10-sigma threshold. If not specified, defaults to
             `threshold_on - 2`, unless `threshold_on < 5`. In this
             scenario, `threshold_off` is the smaller of 3 and
-            `threshold_on`.
-        mergewindow : int, NoneType, optional
+            `threshold_on`. If multiple channels are to be triggered
+            on, should be a list of thresholds.
+        mergewindow : int, optional
             Window within which to merge triggers, in units of number of
             time bins. Defaults to no merging. It is not recommended to
             set this to above half of a trace length, as substantial
-            dead time may be accrued.
+            dead time may be accrued. If multiple channels are to be
+            triggered on, this also marks events within this window
+            as coincident and the centers the saved trace on the channel
+            with the largest amplitude.
+        verbose : bool
+            If True, a progress bar will be shown via `tqdm` to
+            give an estimate of time remaining. Default is False.
         
         """
 
-        self._template = template
-        self._psd = psd
-        self._nthreshold_on = threshold_on
+        self._template = template if type(template) is list else [template]
+        self._psd = psd if type(psd) is list else [psd]
+        self._nthreshold_on = threshold_on if type(threshold_on) is list else [threshold_on]
 
-        posthreshold = True if self._nthreshold_on > 0 else False
+        posthreshold = [True if t_on > 0 else False for t_on in self._nthreshold_on]
+        sign = [1 if pthresh else -1 for pthresh in posthreshold]
 
         if threshold_off is None:
-            sign = 1 if posthreshold else -1
-            if abs(self._nthreshold_on) > 5:
-                self._nthreshold_off = threshold_on - sign * 2
-            elif abs(self._nthreshold_on) > 3:
-                self._nthreshold_off = 3 * sign
-            else: 
-                self._nthreshold_off = threshold_on
+            self._nthreshold_off = []
+            for ss, t_on in zip(sign, self._nthreshold_on):
+                if abs(t_on) > 5:
+                    self._nthreshold_off.append(t_on - ss * 2)
+                elif abs(t_on) > 3:
+                    self._nthreshold_off.append(3 * ss)
+                else: 
+                    self._nthreshold_off.append(t_on)
         else:
-            self._nthreshold_off = threshold_off
+            self._nthreshold_off = threshold_off if type(threshold_off) is list else [threshold_off]
 
-        self._tchan = tchan
+        self._tchan = tchan if type(tchan) is list else [tchan]
 
         self._initialize_filter()
-        self._threshold_on = self._nthreshold_on * self._resolution
-        self._threshold_off = self._nthreshold_off * self._resolution
+        self._threshold_on = [t_on * res for t_on, res in zip(self._nthreshold_on, self._resolution)]
+        self._threshold_off = [t_off * res for t_off, res in zip(self._nthreshold_off, self._resolution)]
 
 
         savename = "trigger_" + self._start.strftime("%Y%m%d_%H%M%S")
@@ -506,7 +533,7 @@ class EventBuilder(object):
         basenevents = 0
 
 
-        for filename in filelist:
+        for filename in tqdm(filelist, disable=not verbose):
 
             FR = Reader(filename)
             data, metadata = FR.get_data(include_metadata=True)
@@ -519,9 +546,10 @@ class EventBuilder(object):
             for kk, filt in enumerate(filtered):
 
                 ranges = EventBuilder._smart_trigger(
-                    sign * filt,
-                    sign * self._threshold_on,
-                    sign * self._threshold_off,
+                    filt,
+                    sign,
+                    self._threshold_on,
+                    self._threshold_off,
                     mergewindow,
                 )
 
@@ -529,10 +557,18 @@ class EventBuilder(object):
                     break
 
                 for ind0, ind1 in zip(ranges[:, 0], ranges[:, 1]):
-                    indmax = ind0 + np.argmax(sign * filt[ind0:ind1])
+                    max_chan = np.argmax(
+                        np.max(
+                            filt[:, ind0:ind1] / np.asarray(self._resolutions)[:, np.newaxis],
+                            axis=1,
+                        )
+                    )
+                    indmax = ind0 + np.argmax(
+                        sign[max_chan] * filt[max_chan, ind0:ind1]
+                    )
                     evtinds_list.append([indmax - self._tracelength//2])
                     triginds_list.append([indmax])
-                    evtamps_list.append([filt[indmax]])
+                    evtamps_list.append([filt[:, indmax]])
                     trace_save_start = indmax - self._tracelength//2
                     trace_save_end = indmax + self._tracelength//2
                     traces_list.append(

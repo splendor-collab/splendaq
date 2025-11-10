@@ -174,7 +174,11 @@ class Writer(object):
             )
             for key in metadata:
                 size_of_key = sys.getsizeof(copy.deepcopy(metadata[key]))
-                if current_metadata_size + size_of_key < 64000:
+                if (
+                        current_metadata_size + size_of_key < 64000
+                    ) and (
+                        type(metadata[key]) is not list
+                    ):
                     current_metadata_size += size_of_key
                     hf.attrs[key] = metadata[key]
                 else:
