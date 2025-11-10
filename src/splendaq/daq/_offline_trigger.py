@@ -559,7 +559,7 @@ class EventBuilder(object):
                 for ind0, ind1 in zip(ranges[:, 0], ranges[:, 1]):
                     max_chan = np.argmax(
                         np.max(
-                            filt[:, ind0:ind1] / np.asarray(self._resolutions)[:, np.newaxis],
+                            filt[:, ind0:ind1] / np.asarray(self._resolution)[:, np.newaxis],
                             axis=1,
                         )
                     )
