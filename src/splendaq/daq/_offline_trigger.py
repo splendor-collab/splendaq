@@ -47,7 +47,7 @@ def rand_sections(x, n, l):
     tup = ((n,), x.shape[1:-1], (l,))
     sz = sum(tup, ())
 
-    res = np.zeros(sz)
+    res = np.zeros(sz, dtype=x.dtype)
     evtinds = np.zeros(n, dtype=int)
     j = 0
 
@@ -434,7 +434,8 @@ class EventBuilder(object):
 
 
     def acquire_pulses(self, template, psd, threshold_on, tchan,
-                       threshold_off=None, mergewindow=0, verbose=False):
+                       threshold_off=None, mergewindow=0, function=None,
+                       verbose=False):
         """
         Method to carry out the offline triggering algorithm based on
         the OF formalism in time domain. Only trigeers on one specified
@@ -475,7 +476,7 @@ class EventBuilder(object):
             scenario, `threshold_off` is the smaller of 3 and
             `threshold_on`. If multiple channels are to be triggered
             on, should be a list of thresholds.
-        mergewindow : int, optional
+        mergewindow : int, NoneType, optional
             Window within which to merge triggers, in units of number of
             time bins. Defaults to no merging. It is not recommended to
             set this to above half of a trace length, as substantial
@@ -492,6 +493,9 @@ class EventBuilder(object):
         self._template = template if type(template) is list else [template]
         self._psd = psd if type(psd) is list else [psd]
         self._nthreshold_on = threshold_on if type(threshold_on) is list else [threshold_on]
+
+        if mergewindow is None:
+            mergewindow = 0
 
         posthreshold = [True if t_on > 0 else False for t_on in self._nthreshold_on]
         sign = [1 if pthresh else -1 for pthresh in posthreshold]
@@ -537,6 +541,8 @@ class EventBuilder(object):
 
             FR = Reader(filename)
             data, metadata = FR.get_data(include_metadata=True)
+            if function is not None:
+                data = function(data)
             parentsn = metadata['parentseriesnumber'][0]
             parenten = metadata['parenteventnumber'][0]
             epochtime_start = metadata['eventtime'][0]
