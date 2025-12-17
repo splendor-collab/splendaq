@@ -484,6 +484,11 @@ class EventBuilder(object):
             triggered on, this also marks events within this window
             as coincident and the centers the saved trace on the channel
             with the largest amplitude.
+        function : FunctionType, NoneType, optional
+            Applies the defined function to the raw data before
+            triggering, useful in cases of complex data or other
+            nonlinear corrections. Default is None, which keeps
+            the data as is.
         verbose : bool
             If True, a progress bar will be shown via `tqdm` to
             give an estimate of time remaining. Default is False.
