@@ -285,9 +285,7 @@ def convert_li_to_h5(li_file, my_os):
         kw_fs = "mode,"
         fs = float([
             s for s in comment if kw_fs in s
-        ][0][len(kw_fs):].split('Hz')[0])
-
-    
+        ][0].split(',')[1].split('Hz')[0])
 
     arr = np.vstack([m['data'] for m in mat_files])
     columns = mat_file['legend']
